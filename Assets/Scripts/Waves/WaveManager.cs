@@ -120,10 +120,19 @@ public class WaveManager : MonoBehaviour
         if (entry == null || entry.prefab == null) return;
 
         Vector2 dir = Random.insideUnitCircle.normalized;
-        Vector2 pos = (Vector2)player.position + dir * spawnRadius;
+        // 1. Düşmanın normalde doğmak istediği rastgele noktayı hesapla
+        Vector2 targetSpawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * 12f;
+
+        // 2. Haritanın merkezinin (0,0) ve boyutunun (60x30) olduğunu biliyoruz.
+        // Kenar duvarlarının içine (veya dışına) girmemesi için X ve Y değerlerini sınırla (Clamp).
+        // X için güvenli alan: -28 ile +28 arası. Y için güvenli alan: -13 ile +13 arası.
+        float clampedX = Mathf.Clamp(targetSpawnPos.x, -28f, 28f);
+        float clampedY = Mathf.Clamp(targetSpawnPos.y, -13f, 13f);
+
+        Vector2 safeSpawnPos = new Vector2(clampedX, clampedY);
 
         EnemyHealth enemy = GetFromPool(entry.prefab);
-        enemy.transform.position = pos;
+        enemy.transform.position = safeSpawnPos; // BURAYI safeSpawnPos OLARAK DEGISTIRDIK
         enemy.gameObject.SetActive(true);
     }
 

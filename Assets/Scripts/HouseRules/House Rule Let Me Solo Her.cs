@@ -5,7 +5,7 @@ public class HouseRuleLetMeSoloHer : HouseRuleBase
     [Header("Kilitli seviye basina stat puani = 2 (KILIT)")]
     [SerializeField] private int pointsPerLevel = 2;
 
-    [Header("Puan basina stat degerleri (level-up birimleriyle uyumlu oneri)")]
+    [Header("Puan basina stat degerleri")]
     [SerializeField] private float pProjDmg = 1f, pMeleeDmg = 1f, pHealth = 3f, pArmor = 1f;
     [SerializeField] private float pMove = 0.2f, pProjSpeed = 0.25f, pRange = 0.25f;
     [SerializeField] private float pProjAtkSpd = 0.15f, pMeleeAtkSpd = 0.15f;
@@ -13,24 +13,44 @@ public class HouseRuleLetMeSoloHer : HouseRuleBase
 
     public override bool CanSell => false;   // KALICI SECIM
 
-    private bool choiceMade;
+    private bool choiceMade = false;
+    private bool isWaitingForWaveStart = true;
+    private bool showUI = false;
 
-    private void Start()
+    // Magaza referansi BIR KEZ bulunur. Eskiden her frame FindFirstObjectByType
+    // cagriliyordu = sahnedeki tum objeleri taramak, kare basina bosa maliyet.
+    private ShopManager shopCache;
+
+    // Base class kurali geregi bos durmali
+    protected override void OnLevelChanged() { }
+
+    private void Awake()
     {
-        // Magazadan alindigi an (Obje uretildiginde) secim ekranini hazirla
-        if (!choiceMade)
-        {
-            Time.timeScale = 0f;
-        }
+        shopCache = FindFirstObjectByType<ShopManager>();
     }
-    protected override void OnLevelChanged()
+
+    private void Update()
     {
-        // Içi bos kalacak, sadece base class'in kuralina uymak icin burada.
+        // Eger secim zaten yapildiysa hicbir sey yapma
+        if (choiceMade) return;
+
+        // Eger magaza aciksa, sessizce bekle (UI cizme, zamani durdurma)
+        if (AnyOtherScreenOpen()) return;
+
+        // Magaza kapandiysa (Next Wave basildiysa) ve hala bekliyorsak:
+        // Harekete gec ve pusuya yat!
+        if (isWaitingForWaveStart)
+        {
+            isWaitingForWaveStart = false; // Pusu tetiklendi
+            showUI = true;                 // Arayuzu goster
+            Time.timeScale = 0f;           // Dalga baslamadan oyunu ANINDA dondur
+        }
     }
 
     private void OnGUI()
     {
-        if (choiceMade) return;
+        // UI kapaliysa (magazadaysak veya secim yapildiysa) cizme
+        if (!showUI) return;
 
         float w = 420f, h = 180f;
         float x = (Screen.width - w) / 2f, y = (Screen.height - h) / 2f;
@@ -50,6 +70,7 @@ public class HouseRuleLetMeSoloHer : HouseRuleBase
     private void Choose(WeaponCategory lockedCategory)
     {
         choiceMade = true;
+        showUI = false; // Ekrani kapat
 
         // 1) Kategoriyi kilitle: silahlar sokulur, toplam seviye doner
         int lockedLevels = weaponManager.LockCategory(lockedCategory);
@@ -65,7 +86,13 @@ public class HouseRuleLetMeSoloHer : HouseRuleBase
         {
             // Ranged yolu: melee hasar 0, atis hizi +%50
             stats.AddStat(StatType.MeleeDamage, -stats.BaseMeleeDamage);
-            stats.AddStat(StatType.ProjectileAttackSpeed, stats.ProjectileAttackSpeed * 0.5f);
+
+            // DIKKAT: eskiden "AddStat(..., stats.ProjectileAttackSpeed * 0.5f)" yaziyordu.
+            // stats.ProjectileAttackSpeed bir GETTER: taban degeri Ace of Spades burst'u ve
+            // diger carpanlarla CARPILMIS halde dondurur. Yani Ace of Spades tam o anda
+            // aktifse (2.5x) tabana 2.5 kat fazla eklenirdi - kalici sismis stat.
+            // Dogrusu: carpan olarak uygula. %50 = 1.5x
+            stats.MultiplyPermanentAtkSpeed(1.5f);
         }
         else
         {
@@ -74,19 +101,15 @@ public class HouseRuleLetMeSoloHer : HouseRuleBase
             stats.MultiplyMeleeReach(1.5f);
         }
 
-        // Oyunu SADECE biz durdurmussak akit (magazadaysak magaza yonetiyor)
-        // Basit kural: magaza acik degilse timeScale'i geri ver
-        if (Time.timeScale == 0f && !AnyOtherScreenOpen())
-            Time.timeScale = 1f;
+        // Oyuncu secimini yapti, dalgayi (oyunu) baslat!
+        Time.timeScale = 1f;
     }
 
     private bool AnyOtherScreenOpen()
     {
-        ShopManager shop = FindFirstObjectByType<ShopManager>();
-        return shop != null && shop.IsOpen;
+        return shopCache != null && shopCache.IsOpen;
     }
 
-    /// +1 puani 11 statin rastgele birine uygular (routing - ayni desen)
     private void ApplyRandomStatPoint()
     {
         int r = Random.Range(0, 11);
