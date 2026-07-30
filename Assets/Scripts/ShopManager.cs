@@ -22,7 +22,7 @@ public class ShopManager : MonoBehaviour
     [SerializeField] private int houseRuleBasePrice = 90;
     [SerializeField] private float wavePriceScalePercent = 30f;
     [SerializeField] private float itemPriceIncreasePercent = 35f;
-    [SerializeField] private int healCost = 50; // Can yenileme fiyati
+    [SerializeField] private int healCost = 50;
     [SerializeField] private int refreshBaseCost = 35;
     [SerializeField] private float refreshIncreasePercent = 50f;
     [SerializeField] private float sellRefundPercent = 50f;
@@ -36,18 +36,18 @@ public class ShopManager : MonoBehaviour
         public HouseRuleBase hrPrefab;
         public int price;
         public bool sold;
-        public bool locked;                    // YENI: kilit
+        public bool locked;
         public bool IsWeapon => weaponPrefab != null;
         public bool IsHouseRule => hrPrefab != null;
     }
 
-    private readonly Slot[] slots = new Slot[5];   // KALICI (kilitler yasasin diye)
+    private readonly Slot[] slots = new Slot[5];
     private int refreshesUsed;
     private int currentWave;
     private bool closeClicked;
-    private bool sellMode;                          // YENI: sat modu
-    private WeaponBase pendingWeapon;               // YENI: askidaki silah (prefab)
-    private readonly List<WeaponBase> pendingCopies = new();   // gecerli kopya hedefleri
+    private bool sellMode;
+    private WeaponBase pendingWeapon;
+    private readonly List<WeaponBase> pendingCopies = new();
     private readonly Dictionary<TrinketDefinition, int> ownedTrinkets = new();
 
     public IEnumerator RunShop(int waveNumber)
@@ -57,7 +57,7 @@ public class ShopManager : MonoBehaviour
         sellMode = false;
         pendingWeapon = null;
 
-        RollSlots(respectLocks: true);   // KILIT kurali: her wave zorunlu bedava reroll (kilitliler haric)
+        RollSlots(respectLocks: true);
 
         IsOpen = true;
         closeClicked = false;
@@ -76,24 +76,23 @@ public class ShopManager : MonoBehaviour
         for (int i = 0; i < slots.Length; i++)
         {
             if (respectLocks && slots[i] != null && slots[i].locked && !slots[i].sold)
-                continue;   // kilitli ve satilmamis: aynen kalir (fiyati da sabit)
+                continue;
             slots[i] = RollOne();
         }
     }
 
     private Slot RollOne()
     {
-        // FILTRELI havuzlar (v1.3):
         List<WeaponBase> silahlar = new();
         foreach (WeaponBase w in allWeapons)
-            if (!weaponManager.IsCategoryLocked(w.Category))   // LMSH filtresi
+            if (w != null && !weaponManager.IsCategoryLocked(w.Category))
                 silahlar.Add(w);
 
         List<HouseRuleBase> kurallar = new();
         foreach (HouseRuleBase hr in allHouseRules)
         {
+            if (hr == null) continue;
             HouseRuleBase owned = houseRuleManager.FindBySource(hr);
-            // Sahipsek ve (seviyesiz VEYA max) -> vitrine girmez (tek kopya kurali)
             if (owned != null && (!owned.Levelable || owned.Level >= HouseRuleBase.MaxLevel))
                 continue;
             kurallar.Add(hr);
@@ -107,8 +106,9 @@ public class ShopManager : MonoBehaviour
         roll -= silahlar.Count;
         if (roll < kurallar.Count)
             return new Slot { hrPrefab = kurallar[roll], price = CalculatePrice(houseRuleBasePrice) };
+
         TrinketDefinition t = allTrinkets[Mathf.Clamp(roll - kurallar.Count, 0, allTrinkets.Length - 1)];
-        return new Slot { trinket = t, price = CalculatePrice(t.basePrice) };
+        return new Slot { trinket = t, price = CalculatePrice(t != null ? t.basePrice : 0) };
     }
 
     private int CalculatePrice(int basePrice)
@@ -128,22 +128,20 @@ public class ShopManager : MonoBehaviour
     private void TryBuy(int index)
     {
         Slot s = slots[index];
-        if (s.sold || resources.Chips < s.price || pendingWeapon != null) return;
+        if (s == null || s.sold || resources.Chips < s.price || pendingWeapon != null) return;
 
         if (s.IsWeapon)
         {
-            if (!weaponManager.CanPurchase(s.weaponPrefab)) return;   // Durum C korumasi
+            if (!weaponManager.CanPurchase(s.weaponPrefab)) return;
 
-            resources.SpendChips(s.price);      // para HEMEN duser (belge kurali)
+            resources.SpendChips(s.price);
             s.sold = true;
-            s.locked = false;                    // satilan slotta kilit anlamsiz
+            s.locked = false;
 
-            // Gecerli hedefleri hesapla
             weaponManager.GetUpgradableCopies(s.weaponPrefab, pendingCopies);
             bool bosVar = weaponManager.HasEmptySlot;
             int hedefSayisi = pendingCopies.Count + (bosVar ? 1 : 0);
 
-            // OTOMATIK kisayollar (belge: tek hedef varsa sorma)
             if (hedefSayisi <= 1)
             {
                 if (pendingCopies.Count == 1 && !bosVar)
@@ -154,7 +152,7 @@ public class ShopManager : MonoBehaviour
             }
             else
             {
-                pendingWeapon = s.weaponPrefab;  // ASKIDA: oyuncu hedef secene kadar
+                pendingWeapon = s.weaponPrefab;
                 sellMode = false;
             }
         }
@@ -166,16 +164,16 @@ public class ShopManager : MonoBehaviour
         }
         else
         {
+            if (s.trinket == null) return;
             resources.SpendChips(s.price);
             ApplyTrinket(s.trinket, +1f);
             ownedTrinkets[s.trinket] = ownedTrinkets.TryGetValue(s.trinket, out int n) ? n + 1 : 1;
             s.sold = true; s.locked = false;
         }
 
-        // 5/5 bedava yenileme (kilitler zaten satildiginda dusuyor)
         bool allSold = true;
         foreach (Slot slot in slots)
-            if (!slot.sold) { allSold = false; break; }
+            if (slot != null && !slot.sold) { allSold = false; break; }
         if (allSold)
         {
             refreshesUsed++;
@@ -183,10 +181,9 @@ public class ShopManager : MonoBehaviour
         }
     }
 
-    // Askidaki silahi hedefe uygula
     private void PlacePendingOnCopy(WeaponBase copy)
     {
-        if (pendingWeapon == null) return;
+        if (pendingWeapon == null || copy == null) return;
         copy.LevelUp();
         pendingWeapon = null;
     }
@@ -209,15 +206,10 @@ public class ShopManager : MonoBehaviour
 
     private void BuyHealthRestore()
     {
-        // Parasi yetiyorsa ve cani max degilse
         if (resources.Chips >= healCost && health.CurrentHealth < health.MaxHealth)
         {
             resources.SpendChips(healCost);
-
-            // Maksimum canin %30'u kadar iyilestir (0.5f yerine 0.3f yazdik)
             float healAmount = health.MaxHealth * 0.3f;
-
-            // PlayerHealth icindeki yeni Heal fonksiyonumuzu cagiriyoruz
             health.Heal(healAmount);
         }
     }
@@ -225,28 +217,29 @@ public class ShopManager : MonoBehaviour
     // ---------------- SATIS ----------------
     private void TrySellWeapon(WeaponBase instance)
     {
-        if (!weaponManager.SellWeapon(instance)) return;
+        if (instance == null || !weaponManager.SellWeapon(instance)) return;
         resources.AddChipsRefund(RefundFor(weaponBasePrice));
     }
 
     private void TrySellHouseRule(HouseRuleBase instance)
     {
-        if (!houseRuleManager.Sell(instance)) return;
+        if (instance == null || !houseRuleManager.Sell(instance)) return;
         resources.AddChipsRefund(RefundFor(houseRuleBasePrice));
     }
 
     private void TrySellTrinket(TrinketDefinition t)
     {
-        if (!ownedTrinkets.TryGetValue(t, out int n) || n <= 0) return;
+        if (t == null || !ownedTrinkets.TryGetValue(t, out int n) || n <= 0) return;
         ApplyTrinket(t, -1f);
         if (n == 1) ownedTrinkets.Remove(t);
         else ownedTrinkets[t] = n - 1;
         resources.AddChipsRefund(RefundFor(t.basePrice));
     }
 
-    // ---------------- TRINKET (degismedi) ----------------
+    // ---------------- TRINKET ----------------
     private void ApplyTrinket(TrinketDefinition t, float sign)
     {
+        if (t == null || t.modifiers == null) return;
         foreach (TrinketModifier m in t.modifiers)
         {
             float a = m.amount * sign;
@@ -267,32 +260,39 @@ public class ShopManager : MonoBehaviour
         }
     }
 
-    // ================= 3 SUTUNLU EKRAN (OnGUI - gecici) =================
+    // ================= 3 SUTUNLU EKRAN (1080p Ölçekli Kalıcı Çözüm) =================
     private void OnGUI()
     {
         if (!IsOpen) return;
+        if (health == null || stats == null || resources == null || movement == null || weaponManager == null || houseRuleManager == null) return;
 
-        float leftW = 250f, midW = 430f, rightW = 300f, gap = 10f;
+        // 1920x1080 ZORUNLU EKRAN ÖLÇEKLEMESİ (Tüm arayüzü cam gibi büyütür)
+        Vector3 scale = new Vector3(Screen.width / 1920f, Screen.height / 1080f, 1f);
+        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, scale);
+
+        float leftW = 350f, midW = 600f, rightW = 400f, gap = 20f;
         float totalW = leftW + midW + rightW + gap * 2;
-        float h = 600f;
-        float x0 = (Screen.width - totalW) / 2f;
-        float y0 = (Screen.height - h) / 2f;
+        float h = 800f;
+
+        // Matrix sayesinde ekranı 1920x1080 farz ederek koordinat veriyoruz
+        float x0 = (1920f - totalW) / 2f;
+        float y0 = (1080f - h) / 2f;
 
         bool askida = pendingWeapon != null;
 
-        // Askida bandi (ust orta)
+        // Askida bandi
         if (askida)
         {
             GUI.color = Color.yellow;
-            GUI.Box(new Rect(x0 + leftW + gap, y0 - 34, midW, 28),
+            GUI.Box(new Rect(x0 + leftW + gap, y0 - 40, midW, 35),
                 $"YENI {pendingWeapon.WeaponName}: SAG PANELDE PARLAYAN HEDEFE TIKLA!");
             GUI.color = Color.white;
         }
 
         // ===== SOL: STATLAR + TRINKETLER =====
         GUI.Box(new Rect(x0, y0, leftW, h), "STATLARIN");
-        float ly = y0 + 26;
-        void S(string ad, string deger) { GUI.Label(new Rect(x0 + 10, ly, leftW - 20, 19), $"{ad}: {deger}"); ly += 19; }
+        float ly = y0 + 35;
+        void S(string ad, string deger) { GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), $"{ad}: {deger}"); ly += 25; }
         S("Can", $"{health.CurrentHealth:F0}/{health.MaxHealth:F0}");
         S("Zirh", $"{health.Armor:F1}");
         S("Hareket Hizi", $"{movement.MoveSpeed:F1}");
@@ -307,28 +307,29 @@ public class ShopManager : MonoBehaviour
         S("Pickup Yaricapi", $"{stats.PickupRadius:F1}");
         S("Level", $"{resources.Level}");
 
-        ly += 8;
-        GUI.Label(new Rect(x0 + 10, ly, leftW - 20, 19), "-- TRINKETLERIN --"); ly += 21;
+        ly += 15;
+        GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), "-- TRINKETLERIN --"); ly += 30;
         List<TrinketDefinition> trKopya = new List<TrinketDefinition>(ownedTrinkets.Keys);
         foreach (TrinketDefinition t in trKopya)
         {
-            GUI.Label(new Rect(x0 + 10, ly, leftW - 95, 19), $"{t.displayName} x{ownedTrinkets[t]}");
+            if (t == null) continue;
+            GUI.Label(new Rect(x0 + 15, ly, leftW - 120, 25), $"{t.displayName} x{ownedTrinkets[t]}");
             GUI.enabled = !askida;
-            if (GUI.Button(new Rect(x0 + leftW - 80, ly, 70, 18), $"Sat {RefundFor(t.basePrice)}"))
+            if (GUI.Button(new Rect(x0 + leftW - 100, ly, 85, 25), $"Sat {RefundFor(t.basePrice)}"))
                 TrySellTrinket(t);
             GUI.enabled = true;
-            ly += 21;
+            ly += 30;
         }
 
         // ===== ORTA: SATIS SLOTLARI + REROLL =====
         float mx = x0 + leftW + gap;
-        GUI.Box(new Rect(mx, y0, midW, h), $"MAGAZA (Wave {currentWave})     Chips: {resources.Chips}");
+        GUI.Box(new Rect(mx, y0, midW, h), $"MAGAZA (Wave {currentWave})    Chips: {resources.Chips}");
 
         GUI.enabled = !askida;
         for (int i = 0; i < slots.Length; i++)
         {
             Slot s = slots[i];
-            float rowY = y0 + 30 + i * 70;
+            float rowY = y0 + 40 + i * 100;
             string label; bool buyable;
 
             if (s == null) continue;
@@ -337,7 +338,7 @@ public class ShopManager : MonoBehaviour
             {
                 int kopya = 0;
                 foreach (WeaponBase w in weaponManager.Equipped)
-                    if (w.SourcePrefab == s.weaponPrefab.gameObject) kopya++;
+                    if (w != null && w.SourcePrefab == s.weaponPrefab.gameObject) kopya++;
                 bool alinabilir = weaponManager.CanPurchase(s.weaponPrefab);
                 label = $"[SILAH] {s.weaponPrefab.WeaponName}   [{s.price}]"
                       + (kopya > 0 ? $"   (sende: {kopya} kopya)" : "   YENI")
@@ -358,37 +359,39 @@ public class ShopManager : MonoBehaviour
             }
             else
             {
-                int sahip = ownedTrinkets.TryGetValue(s.trinket, out int n) ? n : 0;
-                label = $"{s.trinket.displayName}   [{s.price}]" + (sahip > 0 ? $"  (x{sahip})" : "")
-                      + $"\n{s.trinket.description}";
-                buyable = true;
+                if (s.trinket == null) { label = "Hata: Trinket Bos!"; buyable = false; }
+                else
+                {
+                    int sahip = ownedTrinkets.TryGetValue(s.trinket, out int n) ? n : 0;
+                    label = $"{s.trinket.displayName}   [{s.price}]" + (sahip > 0 ? $"  (x{sahip})" : "")
+                          + $"\n{s.trinket.description}";
+                    buyable = true;
+                }
             }
 
-            // Kilit dugmesi [K] - BEDAVA (v1.3)
             bool eskiEnabled = GUI.enabled;
             GUI.enabled = !askida && !s.sold;
             GUI.backgroundColor = s.locked ? Color.cyan : Color.white;
-            if (GUI.Button(new Rect(mx + midW - 52, rowY, 40, 62), s.locked ? "KILIT\nACIK" : "K"))
+            if (GUI.Button(new Rect(mx + midW - 70, rowY, 55, 85), s.locked ? "KILIT\nACIK" : "K"))
                 s.locked = !s.locked;
             GUI.backgroundColor = Color.white;
             GUI.enabled = eskiEnabled;
 
             GUI.enabled = !askida && buyable && resources.Chips >= s.price && !s.sold;
-            if (GUI.Button(new Rect(mx + 12, rowY, midW - 70, 62), label + (s.locked ? "   [KILITLI]" : "")))
+            if (GUI.Button(new Rect(mx + 15, rowY, midW - 95, 85), label + (s.locked ? "   [KILITLI]" : "")))
                 TryBuy(i);
             GUI.enabled = !askida;
         }
 
         int rCost = CurrentRefreshCost();
         GUI.enabled = !askida && resources.Chips >= rCost;
-        if (GUI.Button(new Rect(mx + midW - 212, y0 + h - 50, 200, 38), $"REROLL ({rCost})"))
+        if (GUI.Button(new Rect(mx + midW - 280, y0 + h - 60, 260, 45), $"REROLL ({rCost})"))
             TryRefresh();
         GUI.enabled = true;
 
-        // YENI: %30 Can Yenileme Butonu (Reroll'un yanina yerlesir)
         bool canHeal = health.CurrentHealth < health.MaxHealth && resources.Chips >= healCost;
         GUI.enabled = !askida && canHeal;
-        if (GUI.Button(new Rect(mx + 12, y0 + h - 50, 200, 38), $"%30 CAN YENILE ({healCost})"))
+        if (GUI.Button(new Rect(mx + 15, y0 + h - 60, 260, 45), $"%30 CAN YENILE ({healCost})"))
             BuyHealthRestore();
         GUI.enabled = true;
 
@@ -396,49 +399,49 @@ public class ShopManager : MonoBehaviour
         float rx = mx + midW + gap;
         GUI.Box(new Rect(rx, y0, rightW, h), "ENVANTERIN");
 
-        // Sat modu
         GUI.enabled = !askida;
         GUI.backgroundColor = sellMode ? new Color(1f, 0.5f, 0.4f) : Color.white;
-        if (GUI.Button(new Rect(rx + 10, y0 + 26, rightW - 20, 30),
+        if (GUI.Button(new Rect(rx + 15, y0 + 35, rightW - 30, 40),
             sellMode ? "SAT MODU ACIK - iptal icin tikla" : "SAT MODU"))
             sellMode = !sellMode;
         GUI.backgroundColor = Color.white;
         GUI.enabled = true;
 
-        float ry = y0 + 64;
-        GUI.Label(new Rect(rx + 10, ry, rightW - 20, 20), $"-- HOUSE RULES ({houseRuleManager.Equipped.Count}/4) --"); ry += 22;
+        float ry = y0 + 90;
+        GUI.Label(new Rect(rx + 15, ry, rightW - 30, 25), $"-- HOUSE RULES ({houseRuleManager.Equipped.Count}/4) --"); ry += 30;
         List<HouseRuleBase> hrKopya = new List<HouseRuleBase>(houseRuleManager.Equipped);
         foreach (HouseRuleBase r in hrKopya)
         {
+            if (r == null) continue;
             string lbl = $"{r.RuleName}" + (r.Levelable ? $" Lv{r.Level}" : "") + (r.CanSell ? "" : "  [KALICI]");
             if (sellMode && r.CanSell && !askida)
             {
-                if (GUI.Button(new Rect(rx + 10, ry, rightW - 20, 24), $"SAT: {lbl}  (+{RefundFor(houseRuleBasePrice)})"))
+                if (GUI.Button(new Rect(rx + 15, ry, rightW - 30, 30), $"SAT: {lbl}  (+{RefundFor(houseRuleBasePrice)})"))
                     TrySellHouseRule(r);
             }
             else
-                GUI.Label(new Rect(rx + 10, ry, rightW - 20, 24), lbl);
-            ry += 26;
+                GUI.Label(new Rect(rx + 15, ry, rightW - 30, 30), lbl);
+            ry += 35;
         }
 
-        ry += 8;
-        GUI.Label(new Rect(rx + 10, ry, rightW - 20, 20), $"-- SILAHLAR ({weaponManager.Equipped.Count}/{weaponManager.MaxSlots}) --"); ry += 22;
+        ry += 15;
+        GUI.Label(new Rect(rx + 15, ry, rightW - 30, 25), $"-- SILAHLAR ({weaponManager.Equipped.Count}/{weaponManager.MaxSlots}) --"); ry += 30;
 
-        // Silah slotlari: dolu olanlar + bos olanlar (askida hedefleri BURADA parlar)
         List<WeaponBase> silahlar = new List<WeaponBase>(weaponManager.Equipped);
         bool bosSlotButonuCizildi = false;
         for (int i = 0; i < weaponManager.MaxSlots; i++)
         {
-            Rect slotRect = new Rect(rx + 10, ry, rightW - 20, 26);
+            Rect slotRect = new Rect(rx + 15, ry, rightW - 30, 35);
 
             if (i < silahlar.Count)
             {
                 WeaponBase w = silahlar[i];
+                if (w == null) continue;
                 string lbl = $"{w.WeaponName}  Lv{w.Level}";
 
                 if (askida && weaponManager.IsUpgradableCopyOf(w, pendingWeapon))
                 {
-                    GUI.backgroundColor = Color.yellow;              // PARLAMA
+                    GUI.backgroundColor = Color.yellow;
                     if (GUI.Button(slotRect, $"{lbl}  ->  Lv{w.Level + 1}  [BURAYI YUKSELT]"))
                         PlacePendingOnCopy(w);
                     GUI.backgroundColor = Color.white;
@@ -456,7 +459,7 @@ public class ShopManager : MonoBehaviour
                 if (askida && !bosSlotButonuCizildi)
                 {
                     bosSlotButonuCizildi = true;
-                    GUI.backgroundColor = Color.yellow;              // PARLAMA
+                    GUI.backgroundColor = Color.yellow;
                     if (GUI.Button(slotRect, $"[BOS SLOT]  YENI {pendingWeapon.WeaponName} Lv1 TAK"))
                         PlacePendingOnEmptySlot();
                     GUI.backgroundColor = Color.white;
@@ -464,12 +467,11 @@ public class ShopManager : MonoBehaviour
                 else
                     GUI.Label(slotRect, "(bos slot)");
             }
-            ry += 28;
+            ry += 40;
         }
 
-        // Next wave (askidayken kilitli)
         GUI.enabled = !askida;
-        if (GUI.Button(new Rect(rx + 10, y0 + h - 50, rightW - 20, 38), "SONRAKI WAVE ->"))
+        if (GUI.Button(new Rect(rx + 15, y0 + h - 60, rightW - 30, 45), "SONRAKI WAVE ->"))
             closeClicked = true;
         GUI.enabled = true;
     }
