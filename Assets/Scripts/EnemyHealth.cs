@@ -29,6 +29,8 @@ public class EnemyHealth : MonoBehaviour
 
     /// Can yuzdesi (0-1) - boss bari ve enrage icin
     public float HealthPercent => maxHealth <= 0f ? 0f : Mathf.Clamp01(currentHealth / maxHealth);
+    // D20 Zarı ve diğer sistemlerin karakterin maksimum canını "okuyabilmesi" için dışa açılan kapı
+    public float MaxHealth => maxHealth;
 
     private float currentHealth;
     private SpriteRenderer sr;

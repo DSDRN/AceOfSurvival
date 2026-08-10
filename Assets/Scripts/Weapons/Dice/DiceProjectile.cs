@@ -9,9 +9,7 @@ public class DiceProjectile : MonoBehaviour
     [SerializeField] private float hopDistanceMax = 1.4f;
 
     private SpriteRenderer sr;
-    private PlayerStats stats;   // crit zari icin (WeaponDice teslim eder)
-
-    // GC-dostu buffer: bir kez yaratilir, her AoE'de yeniden doldurulur
+    private PlayerStats stats;
     private readonly Collider2D[] hitBuffer = new Collider2D[128];
     private ContactFilter2D noFilter;
 
@@ -21,23 +19,58 @@ public class DiceProjectile : MonoBehaviour
         noFilter = ContactFilter2D.noFilter;
     }
 
-    /// <summary>WeaponDice cagirir. playerStats: crit zari icin.</summary>
-    public void Begin(Vector2 landPoint, int face, PlayerStats playerStats)
+    // YENI EKLENEN "isNat20" PARAMETRESINE DIKKAT
+    public void Begin(Vector2 landPoint, int face, PlayerStats playerStats, bool isNat20 = false)
     {
         stats = playerStats;
         transform.position = landPoint;
 
-        float size = 0.35f + face * 0.1f;
+        // Eger D20 ise zar gorsel olarak normal zarlarin 2 kati buyuk olacak
+        float size = isNat20 ? 1.5f : (0.35f + face * 0.1f);
         transform.localScale = new Vector3(size, size, 1f);
 
         gameObject.SetActive(true);
         StopAllCoroutines();
-        StartCoroutine(BounceRoutine(face));
+
+        if (isNat20)
+            StartCoroutine(Nat20Routine());
+        else
+            StartCoroutine(BounceRoutine(face));
     }
 
+    // --- D20 (NATURAL 20) MAP WIPE FONKSIYONU ---
+    private IEnumerator Nat20Routine()
+    {
+        // Zar 0.5 saniye havada asili kalsin ve dramatik bir bekleyis yaratsin
+        yield return new WaitForSeconds(0.5f);
+
+        DamageNumberManager.Instance?.Show(transform.position, 20, true, Color.yellow);
+        Debug.Log("NATURAL 20!!! HARITA TEMIZLENIYOR!");
+
+        // Sahnedeki tum aktif dusmanlari temizle (GDD 4.3)
+        foreach (EnemyHealth activeEnemy in EnemyHealth.ActiveEnemies)
+        {
+            if (activeEnemy == null || !activeEnemy.gameObject.activeInHierarchy) continue;
+
+            if (activeEnemy.CompareTag("Boss"))
+            {
+                // Boss ise %50 max can hasari ver
+                activeEnemy.TakeDamage(activeEnemy.MaxHealth * 0.5f, true);
+            }
+            else
+            {
+                // Normal dusmanlara direkt tek at
+                activeEnemy.TakeDamage(activeEnemy.MaxHealth * 2f, true);
+            }
+        }
+
+        gameObject.SetActive(false);
+    }
+
+    // --- NORMAL ZAR SEKME FONKSIYONU ---
     private IEnumerator BounceRoutine(int face)
     {
-        // KILIT formuller (GDD 4.3): taban degerler sayidan gelir
+        // ... (Eski kodlarinin aynisi)
         float aoeRadius = face * 0.75f + 1.25f;
         float baseDamage = face * 0.75f + 0.75f;
 
@@ -65,14 +98,12 @@ public class DiceProjectile : MonoBehaviour
             transform.localScale = baseScale;
             pos = next;
 
-            // --- YERE CARPTI: AoE hasar (GC-dostu) ---
             int count = Physics2D.OverlapCircle(pos, aoeRadius, noFilter, hitBuffer);
             for (int i = 0; i < count; i++)
             {
                 EnemyHealth enemy = hitBuffer[i].GetComponent<EnemyHealth>();
                 if (enemy == null) continue;
 
-                // Her dusman icin AYRI crit zari (sansli sekmeler!)
                 float dmg = baseDamage;
                 bool isCrit = false;
                 if (stats != null)
@@ -80,7 +111,6 @@ public class DiceProjectile : MonoBehaviour
 
                 enemy.TakeDamage(dmg, isCrit);
             }
-            // Ileride: carpma sesi + toz + mini screen shake
         }
 
         gameObject.SetActive(false);

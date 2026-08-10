@@ -121,7 +121,7 @@ public class WaveManager : MonoBehaviour
 
         Vector2 dir = Random.insideUnitCircle.normalized;
         // 1. Düşmanın normalde doğmak istediği rastgele noktayı hesapla
-        Vector2 targetSpawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * 12f;
+        Vector2 targetSpawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * spawnRadius;
 
         // 2. Haritanın merkezinin (0,0) ve boyutunun (60x30) olduğunu biliyoruz.
         // Kenar duvarlarının içine (veya dışına) girmemesi için X ve Y değerlerini sınırla (Clamp).
