@@ -8,13 +8,13 @@ public class WeaponTrapCard : WeaponBase
     [SerializeField] private float[] cooldownByLevel = { 6f, 5.6f, 5.1f, 4.7f, 4.1f };
 
     [Header("Sabitler (v1.3 - seviyeyle DEGISMEZ)")]
-    [Tooltip("Patlama yaricapi - SABIT (buyume kurali iptal edildi)")]
+    [Tooltip("Patlama yaricapi - SABIT")]
     [SerializeField] private float explosionRadius = 1.6f;
 
-    [Tooltip("Omur = 15 sn (KILIT - hicbir sey degistirmez)")]
+    [Tooltip("Omur = 15 sn (KILIT)")]
     [SerializeField] private float cardLifeTime = 15f;
 
-    [Tooltip("Birakma basina kart (extra projectile ileride ekler)")]
+    [Tooltip("Birakma basina kart")]
     [SerializeField] private int cardsPerDrop = 1;
 
     [Header("Baglanti")]
@@ -39,13 +39,11 @@ public class WeaponTrapCard : WeaponBase
         if (timer > 0f) return;
 
         DropCards();
-        timer = curCooldown;   // v1.3: sabit deger, aralik yok
+        timer = curCooldown;
     }
 
     private void DropCards()
     {
-        // v1.3 FORMULU: tablo hasari + Card Counting (birakma ANINDA hesaplanir -
-        // sonradan stat artarsa YENI kartlar guclu olur, yerdekiler degismez)
         float toplamHasar = curDamage + stats.CardCounting;
 
         for (int i = 0; i < cardsPerDrop; i++)

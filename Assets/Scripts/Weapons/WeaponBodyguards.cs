@@ -27,12 +27,9 @@ public class WeaponBodyguards : WeaponBase
 
     private float curDamage;
     private int curCount;
-    private float angle;   // cemberdeki guncel aci (derece)
+    private float angle;
 
     private readonly List<Transform> guards = new List<Transform>();
-
-    // Her dusmanin "bir daha ne zaman vurulabilir" zamani.
-    // Time.time = oyun basindan beri gecen sure - cooldown karsilastirmasi icin ideal.
     private readonly Dictionary<EnemyHealth, float> nextHitTime = new();
 
     protected override void OnLevelChanged()
@@ -43,7 +40,6 @@ public class WeaponBodyguards : WeaponBase
         RebuildGuards();
     }
 
-    /// Koruma sayisini seviyeye esitle: eksikse yarat, fazlaysa kapat
     private void RebuildGuards()
     {
         while (guards.Count < curCount)
@@ -59,19 +55,17 @@ public class WeaponBodyguards : WeaponBase
     {
         if (stats == null) return;
 
-        // Cemberde ilerle: 360 derece x tur/sn x gecen sure
         angle += 360f * turnsPerSecond * Time.deltaTime;
         if (angle >= 360f) angle -= 360f;
 
         for (int i = 0; i < curCount; i++)
         {
-            // Korumalari esit acilarla dagit: i. koruma = temel aci + (360/n)*i
             float a = (angle + (360f / curCount) * i) * Mathf.Deg2Rad;
             Vector2 offset = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * orbitRadius;
 
             Transform g = guards[i];
             g.position = (Vector2)owner.position + offset;
-            g.rotation = Quaternion.identity;   // SPRITE DIK KALIR (GDD)
+            g.rotation = Quaternion.identity;
 
             CheckHits(g.position);
         }
@@ -81,16 +75,16 @@ public class WeaponBodyguards : WeaponBase
     {
         float hitSqr = hitRadius * hitRadius;
 
-        for (int i = EnemyHealth.ActiveEnemies.Count - 1; i >= 0; i--)
+        // GUNCELLEME: Artik "AllHittables" listesine bakiyoruz ki Proplari da vurabilsin
+        for (int i = EnemyHealth.AllHittables.Count - 1; i >= 0; i--)
         {
-            EnemyHealth e = EnemyHealth.ActiveEnemies[i];
+            EnemyHealth e = EnemyHealth.AllHittables[i];
 
             if (((Vector2)e.transform.position - guardPos).sqrMagnitude > hitSqr)
-                continue;   // menzil disinda
+                continue;
 
-            // Hit cooldown kontrolu: bu dusmani yakin zamanda vurduk mu?
             if (nextHitTime.TryGetValue(e, out float t) && Time.time < t)
-                continue;   // daha erken - bekle
+                continue;
 
             float dmg = stats.RollMeleeDamage(curDamage, out bool isCrit);
             if (dmg > 0f)

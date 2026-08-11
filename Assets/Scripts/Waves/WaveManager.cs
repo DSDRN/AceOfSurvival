@@ -4,11 +4,17 @@ using UnityEngine;
 
 public class WaveManager : MonoBehaviour
 {
+    // ELDIVENIN VE DIGER SISTEMLERIN ZAMANA BAKABILMESI ICIN DISARI ACILAN KAPI
+    public static WaveManager Instance { get; private set; }
+
     [Header("Wave listesi (sirayla oynatilir)")]
     [SerializeField] private WaveDefinition[] waves;
 
     [Header("Baglantilar")]
     [SerializeField] private Transform player;
+
+    [Tooltip("GiantGlove objesini surukle")]
+    [SerializeField] private GiantGloveHazard glove;
 
     [Header("Spawn ayarlari")]
     [Tooltip("Dusmanlarin dogdugu cember yaricapi (ekran disi)")]
@@ -29,15 +35,15 @@ public class WaveManager : MonoBehaviour
 
     private int currentWaveIndex = -1;
     private float waveTimer;
-    // HUD'in dalga sayisini ve kalan sureyi okuyabilmesi icin disariya acilan kapilar
+
     public int CurrentWaveNumber => currentWaveIndex + 1;
     public float WaveTimeLeft => waveTimer;
 
     private readonly Dictionary<EnemyHealth, List<EnemyHealth>> pools = new();
 
-    // EKLENEN KISIM: Her yeni oyunda istatistikleri ve kill sayacini sifirlar
     private void Awake()
     {
+        Instance = this; // HATA BURADA COZULDU: Instance tanimlandi
         RunTracker.Reset();
         EnemyHealth.RunKills = 0;
     }
@@ -49,18 +55,17 @@ public class WaveManager : MonoBehaviour
         for (currentWaveIndex = 0; currentWaveIndex < waves.Length; currentWaveIndex++)
         {
             WaveDefinition wave = waves[currentWaveIndex];
-
-            // GDD: her wave basinda karakter map ortasinda
             player.position = Vector3.zero;
-
             Debug.Log($"--- WAVE {currentWaveIndex + 1} basladi ({wave.duration} sn) ---");
+
+            if (glove != null) glove.OnWaveStart();
+
             waveTimer = wave.duration;
             float spawnTimer = 0f;
 
             while (waveTimer > 0f)
             {
-                if (player == null || !player.gameObject.activeInHierarchy)
-                    yield break;
+                if (player == null || !player.gameObject.activeInHierarchy) yield break;
 
                 waveTimer -= Time.deltaTime;
                 spawnTimer -= Time.deltaTime;
@@ -70,79 +75,54 @@ public class WaveManager : MonoBehaviour
                     SpawnEnemy(wave);
                     spawnTimer = wave.spawnInterval;
                 }
-
                 yield return null;
             }
 
-            // ---- WAVE SONU SIRALAMASI (GDD 2.2) ----
-            // 1) Kalan dusmanlari sil (loot dusurmezler - Die() degil SetActive)
+            if (glove != null) glove.StopCycle();
+
             ClearAllEnemies();
-            // 2) Yerde kalan XP/chips'i %75 ile otomatik topla
             AutoCollectPickups();
+            Debug.Log($"--- WAVE {currentWaveIndex + 1} bitti! ---");
 
-            Debug.Log($"--- WAVE {currentWaveIndex + 1} bitti! (kalan loot %{autoCollectRatio * 100:F0} ile toplandi) ---");
-
-            // Eger bekleyen level up varsa, secim ekranini baslat
             if (levelUpManager != null && player.GetComponent<PlayerResources>().PendingLevelUps > 0)
-            {
                 yield return StartCoroutine(levelUpManager.RunSelection());
-            }
 
-            // Sonra ekranin kapanmasini bekle...
-            if (levelUpManager != null)
-            {
-                yield return new WaitUntil(() => !levelUpManager.IsOpen);
-            }
+            if (levelUpManager != null) yield return new WaitUntil(() => !levelUpManager.IsOpen);
 
-            // MAGAZA: level-up secimlerinden sonra acilir, son wave'in ardindan acilmaz
-            // 1) EGER EKRANDA LEVEL UP PANELI ACIKSA, KAPANANA KADAR BEKLE
-            if (levelUpManager != null)
-            {
-                yield return new WaitUntil(() => !levelUpManager.IsOpen);
-            }
-
-            // 2) LEVEL UP BITTIGI AN MAGAZAYI AC
             if (shop != null && currentWaveIndex < waves.Length - 1)
-            {
                 yield return StartCoroutine(shop.RunShop(currentWaveIndex + 1));
-            }
 
             yield return new WaitForSeconds(pauseBetweenWaves);
         }
-
-        Debug.Log("=== STAGE TAMAMLANDI! (Boss ve run-sonu ekrani ileride) ===");
+        Debug.Log("=== STAGE TAMAMLANDI! ===");
     }
 
-    // ---------------- SPAWN ----------------
     private void SpawnEnemy(WaveDefinition wave)
     {
         EnemySpawnEntry entry = PickWeighted(wave.enemies);
         if (entry == null || entry.prefab == null) return;
 
         Vector2 dir = Random.insideUnitCircle.normalized;
-        // 1. Düşmanın normalde doğmak istediği rastgele noktayı hesapla
-        Vector2 targetSpawnPos = (Vector2)player.position + Random.insideUnitCircle.normalized * spawnRadius;
+        Vector2 targetSpawnPos = (Vector2)player.position + dir * spawnRadius;
 
-        // 2. Haritanın merkezinin (0,0) ve boyutunun (60x30) olduğunu biliyoruz.
-        // Kenar duvarlarının içine (veya dışına) girmemesi için X ve Y değerlerini sınırla (Clamp).
-        // X için güvenli alan: -28 ile +28 arası. Y için güvenli alan: -13 ile +13 arası.
         float clampedX = Mathf.Clamp(targetSpawnPos.x, -28f, 28f);
         float clampedY = Mathf.Clamp(targetSpawnPos.y, -13f, 13f);
-
         Vector2 safeSpawnPos = new Vector2(clampedX, clampedY);
 
-        EnemyHealth enemy = GetFromPool(entry.prefab);
-        enemy.transform.position = safeSpawnPos; // BURAYI safeSpawnPos OLARAK DEGISTIRDIK
-        enemy.gameObject.SetActive(true);
+        int adet = Mathf.Max(1, entry.groupSize);
+        for (int i = 0; i < adet; i++)
+        {
+            EnemyHealth enemy = GetFromPool(entry.prefab);
+            enemy.transform.position = safeSpawnPos + Random.insideUnitCircle * 1.2f;
+            enemy.gameObject.SetActive(true);
+        }
     }
 
     private EnemySpawnEntry PickWeighted(EnemySpawnEntry[] entries)
     {
         if (entries == null || entries.Length == 0) return null;
-
         float total = 0f;
         foreach (var e in entries) total += e.weight;
-
         float roll = Random.Range(0f, total);
         foreach (var e in entries)
         {
@@ -152,7 +132,6 @@ public class WaveManager : MonoBehaviour
         return entries[entries.Length - 1];
     }
 
-    // ---------------- HAVUZ ----------------
     private EnemyHealth GetFromPool(EnemyHealth prefab)
     {
         if (!pools.TryGetValue(prefab, out List<EnemyHealth> list))
@@ -160,42 +139,32 @@ public class WaveManager : MonoBehaviour
             list = new List<EnemyHealth>();
             pools[prefab] = list;
         }
-
         foreach (EnemyHealth e in list)
         {
-            if (!e.gameObject.activeInHierarchy)
-                return e;
+            if (!e.gameObject.activeInHierarchy) return e;
         }
-
         EnemyHealth yeni = Instantiate(prefab);
         yeni.gameObject.SetActive(false);
         list.Add(yeni);
         return yeni;
     }
 
-    // ---------------- WAVE SONU TEMIZLIK ----------------
     private void ClearAllEnemies()
     {
         List<EnemyHealth> copy = new List<EnemyHealth>(EnemyHealth.ActiveEnemies);
-        foreach (EnemyHealth e in copy)
-            e.gameObject.SetActive(false);
+        foreach (EnemyHealth e in copy) e.gameObject.SetActive(false);
     }
 
-    /// YENI: yerde kalan pickup'lari %75 degerle otomatik topla (GDD 2.2)
     private void AutoCollectPickups()
     {
         List<Pickup> copy = new List<Pickup>(Pickup.ActivePickups);
-        foreach (Pickup p in copy)
-            p.Collect(autoCollectRatio);
+        foreach (Pickup p in copy) p.Collect(autoCollectRatio);
     }
 
-    // ---------------- GECICI DEBUG HUD ----------------
     private void OnGUI()
     {
         if (currentWaveIndex < 0 || currentWaveIndex >= waves.Length) return;
-        GUI.Label(new Rect(10, 10, 400, 25),
-            $"WAVE {currentWaveIndex + 1}/{waves.Length}   Kalan: {Mathf.CeilToInt(Mathf.Max(0, waveTimer))} sn");
-        GUI.Label(new Rect(10, 35, 400, 25),
-            $"Aktif dusman: {EnemyHealth.ActiveEnemies.Count}");
+        GUI.Label(new Rect(10, 10, 400, 25), $"WAVE {currentWaveIndex + 1}/{waves.Length}   Kalan: {Mathf.CeilToInt(Mathf.Max(0, waveTimer))} sn");
+        GUI.Label(new Rect(10, 35, 400, 25), $"Aktif dusman: {EnemyHealth.ActiveEnemies.Count}");
     }
 }

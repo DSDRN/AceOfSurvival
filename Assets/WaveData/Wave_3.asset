@@ -16,18 +16,18 @@ MonoBehaviour:
   spawnInterval: 1
   maxActiveEnemies: 30
   enemies:
-  - prefab: {fileID: 0}
-    weight: 0
-    groupSize: 0
-  - prefab: {fileID: 0}
-    weight: 0
-    groupSize: 0
-  - prefab: {fileID: 0}
-    weight: 0
-    groupSize: 0
-  - prefab: {fileID: 0}
-    weight: 0
-    groupSize: 0
-  - prefab: {fileID: 0}
-    weight: 0
-    groupSize: 0
+  - prefab: {fileID: 4000769661704597237, guid: 4040ae81dc930d8459d705aa605db005, type: 3}
+    weight: 1
+    groupSize: 1
+  - prefab: {fileID: 4000769661704597237, guid: 1f2af9ac6b595bb4dbdbb18c0638cb32, type: 3}
+    weight: 1
+    groupSize: 2
+  - prefab: {fileID: 4000769661704597237, guid: e12b70aba60d07849aedcdcab5c57708, type: 3}
+    weight: 1
+    groupSize: 4
+  - prefab: {fileID: 4000769661704597237, guid: d429bc40375173a499b6c47021af1666, type: 3}
+    weight: 1
+    groupSize: 1
+  - prefab: {fileID: 4000769661704597237, guid: 2b856721f97c8164cb255a40154bbafa, type: 3}
+    weight: 1
+    groupSize: 2

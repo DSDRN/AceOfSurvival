@@ -4,32 +4,32 @@ using UnityEngine;
 
 public class EnemyHealth : MonoBehaviour
 {
+    // Sadece gercek dusmanlar (Wave sonu silinmek ve RunKills icin kullanilir)
     public static readonly List<EnemyHealth> ActiveEnemies = new List<EnemyHealth>();
 
-    /// Bu run'da oldurulen dusman sayisi (run sonu ekrani icin)
+    // YENİ: Hem dusmanlar hem proplar. Otomatik nisan alan silahlar (Zar vb.) BURAYA bakar.
+    public static readonly List<EnemyHealth> AllHittables = new List<EnemyHealth>();
+
     public static int RunKills = 0;
+
+    [Header("Prop Ayari")]
+    [Tooltip("Isaretlenirse dusman sayilmaz, wave bitisinde silinmez")]
+    [SerializeField] private bool isProp = false;
 
     [Header("Can (balance 4_Dusmanlar)")]
     [SerializeField] private float maxHealth = 10f;
 
     [Header("Knockback (balance 4_Dusmanlar 'Knockback direnci' kolonu)")]
-    [Tooltip("0 = tam itilir, 1 = hic itilemez. Sarhos 0, Krupiye 0.95, Fedai 0.9, Boss 1.0")]
     [Range(0f, 1f)]
     [SerializeField] private float knockbackResistance = 0f;
-
-    [Tooltip("Itilmenin surdugu sure (his ayari)")]
     [SerializeField] private float knockbackDuration = 0.15f;
 
     [Header("Drop (balance 4_Dusmanlar)")]
     [SerializeField] private float chipsDropped = 5f;
     [SerializeField] private float xpDropped = 3f;
 
-    /// AI scriptleri bunu kontrol eder: itiliyorken kendi hareketlerini yapmazlar
     public bool IsKnockedBack => knockTimer > 0f;
-
-    /// Can yuzdesi (0-1) - boss bari ve enrage icin
     public float HealthPercent => maxHealth <= 0f ? 0f : Mathf.Clamp01(currentHealth / maxHealth);
-    // D20 Zarı ve diğer sistemlerin karakterin maksimum canını "okuyabilmesi" için dışa açılan kapı
     public float MaxHealth => maxHealth;
 
     private float currentHealth;
@@ -43,7 +43,7 @@ public class EnemyHealth : MonoBehaviour
     {
         sr = GetComponentInChildren<SpriteRenderer>();
         originalColor = sr.color;
-        rb = GetComponent<Rigidbody2D>();   // yoksa null kalir, knockback pas gecilir
+        rb = GetComponent<Rigidbody2D>();
     }
 
     private void OnEnable()
@@ -51,17 +51,20 @@ public class EnemyHealth : MonoBehaviour
         currentHealth = maxHealth;
         sr.color = originalColor;
         knockTimer = 0f;
-        ActiveEnemies.Add(this);
+
+        AllHittables.Add(this); // YENI: Proplar ve dusmanlar vurulabilir listesine eklenir
+
+        if (!isProp) ActiveEnemies.Add(this);
     }
 
     private void OnDisable()
     {
-        ActiveEnemies.Remove(this);
+        AllHittables.Remove(this);
+        if (!isProp) ActiveEnemies.Remove(this);
     }
 
     private void FixedUpdate()
     {
-        // Itilme aktifken hiz BIZIM elimizde (AI'lar IsKnockedBack ile susar)
         if (knockTimer > 0f)
         {
             knockTimer -= Time.fixedDeltaTime;
@@ -69,19 +72,11 @@ public class EnemyHealth : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Silahlar vurdugunda iter. dir = itilme yonu, force = ham guc.
-    /// Direnc formulu: gercek = force x (1 - direnc).
-    /// NOT: negatif melee hasar kuralinda bile knockback CALISIR
-    /// (GDD: "hasar veremezsin ama knockback kalir").
-    /// </summary>
     public void ApplyKnockback(Vector2 dir, float force)
     {
         if (rb == null) return;
-
         float etki = force * (1f - knockbackResistance);
-        if (etki <= 0.01f) return;   // direnc 1.0 (boss) = hic itilme
-
+        if (etki <= 0.01f) return;
         knockVelocity = dir.normalized * etki;
         knockTimer = knockbackDuration;
     }
@@ -89,16 +84,11 @@ public class EnemyHealth : MonoBehaviour
     public void TakeDamage(float damage, bool isCrit)
     {
         currentHealth -= damage;
-
-        // HASAR SAYISI: beyaz normal / sari-buyuk crit ("?." = manager yoksa sessiz)
         DamageNumberManager.Instance?.Show(transform.position, damage, isCrit,
             isCrit ? DamageNumberManager.CritRenk : DamageNumberManager.NormalRenk);
-
         StopAllCoroutines();
         StartCoroutine(HitFlash());
-
-        if (currentHealth <= 0f)
-            Die();
+        if (currentHealth <= 0f) Die();
     }
 
     private IEnumerator HitFlash()
@@ -110,8 +100,17 @@ public class EnemyHealth : MonoBehaviour
 
     private void Die()
     {
-        RunKills++;
+        if (!isProp) RunKills++; // Sadece gercek dusmanlar kill sayilir
         PickupSpawner.Instance?.SpawnDrops(transform.position, chipsDropped, xpDropped);
         gameObject.SetActive(false);
+    }
+
+    // YENİ: Oyuncu (karakter) prop'a fiziksel olarak çarparsa 5 hasar vurur
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (isProp && collision.gameObject.CompareTag("Player"))
+        {
+            TakeDamage(5f, false);
+        }
     }
 }

@@ -49,6 +49,12 @@ public class ProjectileCard : MonoBehaviour
     // fiziksel carpma yerine "icinden gecerken haber ver" calisir.
     private void OnTriggerEnter2D(Collider2D other)
     {
+        // Duvara carpan mermi yok olur (dev eldiven karti vb.)
+        if (other.CompareTag("Wall"))
+        {
+            gameObject.SetActive(false);
+            return;
+        }
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
         if (enemy == null) return;    // dusman degilse (duvar vb.) simdilik delip gec
 

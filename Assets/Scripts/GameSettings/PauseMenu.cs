@@ -36,8 +36,7 @@ public class PauseMenu : MonoBehaviour
 
     private void TogglePause()
     {
-        if (!isPaused && Time.timeScale == 0f) return;
-
+        // Eski kilit kaldirildi. Artik magaza acikken de ESC'ye basilabilir.
         if (isPaused) Resume();
         else Pause();
     }

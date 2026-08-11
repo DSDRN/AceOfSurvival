@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4000769661704597237}
   - component: {fileID: -973067359919617555}
   m_Layer: 7
-  m_Name: DrunkenGambler
+  m_Name: Dice caller
   m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -86,7 +86,7 @@ SpriteRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 75f5f34dc1b5347e0b8351032682f224, type: 3}
-  m_Color: {r: 0.13710396, g: 0.43276775, b: 0.745283, a: 1}
+  m_Color: {r: 0.4811321, g: 0, b: 0.014279204, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -132,7 +132,7 @@ BoxCollider2D:
   m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 9dbc742ed9680494b94824c333e0077b, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -180,6 +180,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e16ac4dda376d2b4196daa4546ee0316, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
+  isProp: 0
   maxHealth: 10
   knockbackResistance: 0
   knockbackDuration: 0.15

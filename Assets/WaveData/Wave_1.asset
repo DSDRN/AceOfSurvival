@@ -19,9 +19,9 @@ MonoBehaviour:
   - prefab: {fileID: 4000769661704597237, guid: 1f2af9ac6b595bb4dbdbb18c0638cb32, type: 3}
     weight: 1
     groupSize: 3
-  - prefab: {fileID: 4000769661704597237, guid: 1f2af9ac6b595bb4dbdbb18c0638cb32, type: 3}
+  - prefab: {fileID: 4000769661704597237, guid: 4040ae81dc930d8459d705aa605db005, type: 3}
     weight: 1
-    groupSize: 3
-  - prefab: {fileID: 4000769661704597237, guid: 1f2af9ac6b595bb4dbdbb18c0638cb32, type: 3}
+    groupSize: 1
+  - prefab: {fileID: 4000769661704597237, guid: e1a18eb2ea05aa04eaf0f4e740b74299, type: 3}
     weight: 1
-    groupSize: 3
+    groupSize: 1

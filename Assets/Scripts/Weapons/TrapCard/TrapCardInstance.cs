@@ -20,7 +20,6 @@ public class TrapCardInstance : MonoBehaviour
         noFilter = ContactFilter2D.noFilter;
     }
 
-    /// <summary>WeaponTrapCard kart birakirken cagirir.</summary>
     public void Arm(Vector2 position, float dmg, float radius, float lifeTime,
                     PlayerStats playerStats, Transform playerTransform)
     {
@@ -30,16 +29,12 @@ public class TrapCardInstance : MonoBehaviour
         lifeTimer = lifeTime;
         stats = playerStats;
         player = playerTransform;
-
-        // Gorsel boyut = patlama yaricapiyla oranli (oyuncu alani okuyabilsin)
         transform.localScale = new Vector3(radius, radius, 1f) * 0.8f;
-
         gameObject.SetActive(true);
     }
 
     private void Update()
     {
-        // 1) Omur doldu mu? (GDD: 15 sn sonra kendiliginden patlar)
         lifeTimer -= Time.deltaTime;
         if (lifeTimer <= 0f)
         {
@@ -47,7 +42,6 @@ public class TrapCardInstance : MonoBehaviour
             return;
         }
 
-        // 2) OYUNCU merkeze basti mi? (patlar ama oyuncu hasar YEMEZ)
         if (player != null && player.gameObject.activeInHierarchy &&
             Vector2.Distance(player.position, transform.position) <= triggerRadius)
         {
@@ -55,7 +49,7 @@ public class TrapCardInstance : MonoBehaviour
             return;
         }
 
-        // 3) Bir DUSMAN merkeze basti mi?
+        // Kural: Proplar mayina basip patlatamaz. Sadece gercek (hareketli) dusmanlar patlatir.
         foreach (EnemyHealth e in EnemyHealth.ActiveEnemies)
         {
             if (Vector2.Distance(e.transform.position, transform.position) <= triggerRadius)
@@ -68,7 +62,6 @@ public class TrapCardInstance : MonoBehaviour
 
     private void Explode()
     {
-        // Patlama alanindaki TUM dusmanlara hasar (oyuncuya ASLA degil - GDD)
         int count = Physics2D.OverlapCircle(transform.position, explosionRadius, noFilter, hitBuffer);
         for (int i = 0; i < count; i++)
         {
@@ -82,8 +75,6 @@ public class TrapCardInstance : MonoBehaviour
 
             enemy.TakeDamage(dmg, isCrit);
         }
-
-        // Ileride: patlama efekti + ses + kucuk screen shake
-        gameObject.SetActive(false);   // havuza don
+        gameObject.SetActive(false);
     }
 }

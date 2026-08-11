@@ -6,8 +6,6 @@ public class WeaponChain : WeaponBase
     [Header("Seviye tablosu (balance: Zincir Lv1-5)")]
     [SerializeField] private float[] damageByLevel = { 3f, 4f, 5f, 6f, 7.25f };
     [SerializeField] private float[] cooldownByLevel = { 1.7f, 1.7f, 1.7f, 1.7f, 1.65f };
-
-    // MENZIL ARTTIRILDI (Eski: 2.0 -> 3.5 | Yeni: 2.5 -> 4.2)
     [SerializeField] private float[] reachByLevel = { 2.5f, 3.0f, 3.5f, 3.8f, 4.2f };
 
     [Header("Geri Tepme (Knockback)")]
@@ -26,14 +24,11 @@ public class WeaponChain : WeaponBase
     [Tooltip("Prefab'in child'i olan yariseffaf kutu (SpriteRenderer)")]
     [SerializeField] private SpriteRenderer slashVisual;
 
-    // Gecerli seviye degerleri
     private float curDamage, curCooldown, curReach;
     private int curHits;
     private bool curBackStrike;
-
     private float cooldownTimer;
 
-    // ---- GC-dostu fizik: buffer BIR KEZ yaratilir ----
     private readonly Collider2D[] hitBuffer = new Collider2D[64];
     private ContactFilter2D noFilter;
 
@@ -47,11 +42,9 @@ public class WeaponChain : WeaponBase
     protected override void OnLevelChanged()
     {
         int i = Mathf.Clamp(Level - 1, 0, 4);
-
         curDamage = damageByLevel[i];
         curCooldown = cooldownByLevel[i];
         curReach = reachByLevel[i];
-
         curHits = Level >= doubleHitFromLevel ? 2 : 1;
         curBackStrike = Level >= backStrikeFromLevel;
     }
@@ -64,17 +57,14 @@ public class WeaponChain : WeaponBase
         if (cooldownTimer > 0f) return;
 
         StartCoroutine(PerformChainCombo());
-
         cooldownTimer = curCooldown / stats.MeleeAttackSpeed;
     }
 
     private IEnumerator PerformChainCombo()
     {
-        // 1. ILK VURUS (Lv 1-2 Arka | Lv 3+ Ön)
         Vector2 firstDir = (Level < 3) ? -movement.FacingDir : movement.FacingDir;
         Strike(firstDir, curHits);
 
-        // 2. IKINCI VURUS (Lv 3+ Arka)
         if (curBackStrike)
         {
             yield return new WaitForSeconds(0.3f);
@@ -102,8 +92,6 @@ public class WeaponChain : WeaponBase
                 {
                     enemy.TakeDamage(dmg, isCrit);
 
-                    // --- KNOCKBACK (GERI TEPME) ---
-                    // Dusmanda Rigidbody2D varsa vurulan yone dogru itilir
                     if (hitBuffer[i].TryGetComponent<Rigidbody2D>(out Rigidbody2D enemyRb))
                     {
                         enemyRb.AddForce(dir * knockbackForce, ForceMode2D.Impulse);
@@ -120,9 +108,7 @@ public class WeaponChain : WeaponBase
     {
         slashVisual.transform.localPosition = dir * (curReach / 2f);
         slashVisual.transform.localScale = new Vector3(curReach, hitHeight, 1f);
-
         slashVisual.flipX = dir.x < 0;
-
         slashVisual.enabled = true;
         yield return new WaitForSeconds(0.08f);
         slashVisual.enabled = false;
