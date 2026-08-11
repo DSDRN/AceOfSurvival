@@ -31,7 +31,14 @@ public class EnemyChaser : MonoBehaviour
         else
             Debug.LogWarning("EnemyChaser: 'Player' tag'li obje bulunamadi! Player objesine tag atadin mi?");
     }
+    // Excel tablosundaki +Dmg/wave degeri
+    [SerializeField] private float dmgPerWave = 0.6f;
 
+    public void InitScaling(int waveNumber)
+    {
+        int scaleCount = Mathf.Max(0, waveNumber - 1);
+        contactDamage += (dmgPerWave * scaleCount);
+    }
     private void FixedUpdate()
     {
         // Hedef yoksa (oyuncu oldu / sahnede yok) dur.

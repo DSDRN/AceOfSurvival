@@ -554,6 +554,7 @@ MonoBehaviour:
   baseXP: 14
   xpGrowth: 1.25
   maxLevel: 25
+  stats: {fileID: 0}
 --- !u!114 &61719663
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3566,8 +3567,8 @@ MonoBehaviour:
   safeTimeAtWaveStart: 5
   telegraphTime: 4
   wallTimeMin: 1
-  wallTimeMax: 2
-  cardDamage: 2.5
+  wallTimeMax: 2.5
+  cardDamage: 10
   cardSize: {x: 5, y: 3.5}
   shadow: {fileID: 1547231907}
   card: {fileID: 670164561}

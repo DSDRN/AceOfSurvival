@@ -93,7 +93,21 @@ public class PlayerHealth : MonoBehaviour
         IsDead = true;
         Debug.Log("OLDUN!");
         gameObject.SetActive(false);
-        // Karakter öldüğünde Game Over ekranını ÇAĞIR:
-        FindFirstObjectByType<GameOverManager>().TriggerGameOver();
+
+        // RUN SONU (GDD 2.4): once RunEndManager - altin hesabi + SaveSystem kaydi.
+        // Sahnede yoksa eski Game Over paneline duser.
+        RunEndManager runEnd = FindFirstObjectByType<RunEndManager>();
+        if (runEnd != null)
+        {
+            int ulasilanWave = WaveManager.Instance != null
+                ? WaveManager.Instance.CurrentWaveNumber
+                : 0;
+            runEnd.ShowEnd(false, ulasilanWave);
+            return;
+        }
+
+        GameOverManager gameOver = FindFirstObjectByType<GameOverManager>();
+        if (gameOver != null) gameOver.TriggerGameOver();
+        else Debug.LogWarning("Sahnede ne RunEndManager ne GameOverManager var!");
     }
 }

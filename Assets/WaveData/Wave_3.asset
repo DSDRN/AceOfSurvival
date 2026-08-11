@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WaveDefinition
   duration: 40
   spawnInterval: 1
-  maxActiveEnemies: 30
+  maxActiveEnemies: 38
   enemies:
   - prefab: {fileID: 4000769661704597237, guid: 4040ae81dc930d8459d705aa605db005, type: 3}
     weight: 1

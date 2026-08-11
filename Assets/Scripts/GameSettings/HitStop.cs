@@ -18,7 +18,7 @@ public class HitStop : MonoBehaviour
     {
         if (instance == null) return;
         if (Time.timeScale != 1f) return;                 // menu acik ya da zaten donuk
-        if (Time.unscaledTime < nextAllowedTime) return;  // cok sik - yut
+        if (Time.unscaledTime < nextAllowedTime) return;  // cok sik vuruluyorsa yut (performans)
 
         nextAllowedTime = Time.unscaledTime + Cooldown;
         instance.StartCoroutine(instance.FreezeRoutine(duration));
@@ -30,7 +30,7 @@ public class HitStop : MonoBehaviour
         // Realtime bekleme sart: scaled bekleseydik donma hic bitmezdi!
         yield return new WaitForSecondsRealtime(duration);
 
-        // SADECE kendi donmamizi geri al (bu arada menu acildiysa 0'dir - dokunma)
+        // SADECE kendi donmamizi geri al (bu arada oyuncu ESC ile menu actiysa timescale 0'dir, ona dokunma)
         if (Mathf.Approximately(Time.timeScale, FrozenScale))
             Time.timeScale = 1f;
     }

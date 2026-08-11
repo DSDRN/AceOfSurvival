@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 4930683392067696478}
   - component: {fileID: 4000769661704597237}
   - component: {fileID: -973067359919617555}
+  - component: {fileID: -2113604891016262641}
   m_Layer: 7
   m_Name: The Dealer
   m_TagString: Enemy
@@ -200,3 +201,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyChaser
   moveSpeed: 2.5
   contactDamage: 1
+--- !u!114 &-2113604891016262641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9006885073131550710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67fb192092dd55244b7ba7c53ad4d201, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BossController
+  moveSpeed: 3.6
+  contactDamage: 12
+  attackInterval: 4
+  fanCardCount: 7
+  fanArc: 60
+  fanCardDamage: 3
+  fanCardSpeed: 5.5
+  fanCardRange: 12
+  cardPrefab: {fileID: 0}
+  slamTelegraph: 1
+  slamRadius: 1.6
+  slamDamage: 8
+  slamMarkers: []
+  enrageIntervalMultiplier: 0.6
+  enrageSpeedMultiplier: 1.25
+  enrageFanCardCount: 9

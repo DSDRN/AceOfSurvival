@@ -7,6 +7,9 @@ public class PlayerResources : MonoBehaviour
     [SerializeField] private float xpGrowth = 1.25f;
     [SerializeField] private int maxLevel = 25;
 
+    [Header("Stat Baglantisi (Crit icin)")]
+    [SerializeField] private PlayerStats stats; // Inspector'dan suruklemeyi unutma!
+
     public int Chips { get; private set; }
     public int Level { get; private set; } = 1;
     public float CurrentXP { get; private set; }
@@ -27,6 +30,7 @@ public class PlayerResources : MonoBehaviour
             int miktar = Mathf.RoundToInt(value);
             Chips += miktar;
             TotalChipsEarned += miktar;
+            RunTracker.TotalChips += miktar; // RunTracker'a baglandi
         }
         else
             AddXP(value);
@@ -42,6 +46,15 @@ public class PlayerResources : MonoBehaviour
             Level++;
             PendingLevelUps++;
             Debug.Log($"LEVEL UP! Yeni level: {Level} (bekleyen secim: {PendingLevelUps})");
+
+            // EPIC 2: Her 5 seviyede bir otomatik Crit artisi!
+            // EPIC 2: Her 5 seviyede bir otomatik Crit artisi!
+            if (Level % 5 == 0 && stats != null)
+            {
+                stats.AddCritChance(2f);
+                stats.AddCritDamage(0.08f); // Hatalı satırları silip doğrusunu yazdık
+                Debug.Log($"5. Seviye Bonusu: Crit Sansi +%2, Crit Carpani +0.08x");
+            }
         }
     }
 
@@ -57,19 +70,18 @@ public class PlayerResources : MonoBehaviour
         return true;
     }
 
-    /// Magaza satis iadesi (chips ekler - kazanc sayilmaz, altina donmez)
     public void AddChipsRefund(int amount)
     {
         Chips += Mathf.Max(0, amount);
     }
 
-    /// Sandik altini (DUZELTILDI: artik chips'e degil, ayri altin sayacina)
     public void AddBonusGold(int amount)
     {
-        BonusGold += Mathf.Max(0, amount);
+        int kazanilan = Mathf.Max(0, amount);
+        BonusGold += kazanilan;
+        RunTracker.TotalGold += kazanilan; // RunTracker'a baglandi
     }
 
-    // ---- Gecici debug HUD ----
     private void OnGUI()
     {
         GUI.Label(new Rect(Screen.width - 260, 10, 250, 25),

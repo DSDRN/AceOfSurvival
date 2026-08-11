@@ -63,21 +63,32 @@ public class ShopManager : MonoBehaviour
         closeClicked = false;
         Time.timeScale = 0f;
 
+        // GUNCELLEME: Artik magaza sadece closeClicked true oldugunda (butona basildiginda) kapanir.
+        // Eger askida (pending) bir silah varsa da oyuncuyu magazada tutar ki hedefini secsin.
         while (!closeClicked || pendingWeapon != null)
+        {
+            // Eger oyuncu "Sonraki Wave"e basarsa ama hala hedef secmesi gereken bir silah varsa uyari verebiliriz
+            if (closeClicked && pendingWeapon != null)
+            {
+                Debug.LogWarning("Once aldigin silahi yerlestir!");
+                closeClicked = false; // Kapanmayi iptal et
+            }
             yield return null;
+        }
 
         Time.timeScale = 1f;
         IsOpen = false;
     }
 
-    // ---------------- HAVUZ + SLOT ÜRETİMİ ----------------
     private void RollSlots(bool respectLocks)
     {
         for (int i = 0; i < slots.Length; i++)
         {
             if (respectLocks && slots[i] != null && slots[i].locked && !slots[i].sold)
                 continue;
-            slots[i] = RollOne();
+
+            // GUNCELLEME: Eger RollOne null donerse (havuz bossa) bos slot yarat ki hata vermesin
+            slots[i] = RollOne() ?? new Slot { sold = true };
         }
     }
 
@@ -99,7 +110,11 @@ public class ShopManager : MonoBehaviour
         }
 
         int toplam = silahlar.Count + kurallar.Count + allTrinkets.Length;
-        int roll = Random.Range(0, Mathf.Max(1, toplam));
+
+        // Guvenlik: Havuzda alinacak HICBIR SEY kalmamissa null dondur
+        if (toplam == 0) return null;
+
+        int roll = Random.Range(0, toplam);
 
         if (roll < silahlar.Count)
             return new Slot { weaponPrefab = silahlar[roll], price = CalculatePrice(weaponBasePrice) };
@@ -124,7 +139,6 @@ public class ShopManager : MonoBehaviour
     private int RefundFor(int basePrice)
         => Mathf.RoundToInt(basePrice * sellRefundPercent / 100f);
 
-    // ---------------- SATIN ALMA ----------------
     private void TryBuy(int index)
     {
         Slot s = slots[index];
@@ -214,7 +228,6 @@ public class ShopManager : MonoBehaviour
         }
     }
 
-    // ---------------- SATIS ----------------
     private void TrySellWeapon(WeaponBase instance)
     {
         if (instance == null || !weaponManager.SellWeapon(instance)) return;
@@ -236,7 +249,6 @@ public class ShopManager : MonoBehaviour
         resources.AddChipsRefund(RefundFor(t.basePrice));
     }
 
-    // ---------------- TRINKET ----------------
     private void ApplyTrinket(TrinketDefinition t, float sign)
     {
         if (t == null || t.modifiers == null) return;
@@ -260,13 +272,11 @@ public class ShopManager : MonoBehaviour
         }
     }
 
-    // ================= 3 SUTUNLU EKRAN (1080p Ölçekli Kalıcı Çözüm) =================
     private void OnGUI()
     {
         if (!IsOpen) return;
         if (health == null || stats == null || resources == null || movement == null || weaponManager == null || houseRuleManager == null) return;
 
-        // 1920x1080 ZORUNLU EKRAN ÖLÇEKLEMESİ (Tüm arayüzü cam gibi büyütür)
         Vector3 scale = new Vector3(Screen.width / 1920f, Screen.height / 1080f, 1f);
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, scale);
 
@@ -274,22 +284,18 @@ public class ShopManager : MonoBehaviour
         float totalW = leftW + midW + rightW + gap * 2;
         float h = 800f;
 
-        // Matrix sayesinde ekranı 1920x1080 farz ederek koordinat veriyoruz
         float x0 = (1920f - totalW) / 2f;
         float y0 = (1080f - h) / 2f;
 
         bool askida = pendingWeapon != null;
 
-        // Askida bandi
         if (askida)
         {
             GUI.color = Color.yellow;
-            GUI.Box(new Rect(x0 + leftW + gap, y0 - 40, midW, 35),
-                $"YENI {pendingWeapon.WeaponName}: SAG PANELDE PARLAYAN HEDEFE TIKLA!");
+            GUI.Box(new Rect(x0 + leftW + gap, y0 - 40, midW, 35), $"YENI {pendingWeapon.WeaponName}: SAG PANELDE PARLAYAN HEDEFE TIKLA!");
             GUI.color = Color.white;
         }
 
-        // ===== SOL: STATLAR + TRINKETLER =====
         GUI.Box(new Rect(x0, y0, leftW, h), "STATLARIN");
         float ly = y0 + 35;
         void S(string ad, string deger) { GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), $"{ad}: {deger}"); ly += 25; }
@@ -321,9 +327,8 @@ public class ShopManager : MonoBehaviour
             ly += 30;
         }
 
-        // ===== ORTA: SATIS SLOTLARI + REROLL =====
         float mx = x0 + leftW + gap;
-        GUI.Box(new Rect(mx, y0, midW, h), $"MAGAZA (Wave {currentWave})    Chips: {resources.Chips}");
+        GUI.Box(new Rect(mx, y0, midW, h), $"MAGAZA (Wave {currentWave})   Chips: {resources.Chips}");
 
         GUI.enabled = !askida;
         for (int i = 0; i < slots.Length; i++)
@@ -332,7 +337,9 @@ public class ShopManager : MonoBehaviour
             float rowY = y0 + 40 + i * 100;
             string label; bool buyable;
 
+            // GUNCELLEME: NullReference hatasina karsi guvenlik
             if (s == null) continue;
+
             if (s.sold) { label = "--- SATILDI ---"; buyable = false; }
             else if (s.IsWeapon)
             {
@@ -395,7 +402,6 @@ public class ShopManager : MonoBehaviour
             BuyHealthRestore();
         GUI.enabled = true;
 
-        // ===== SAG: HOUSE RULES + SILAH SLOTLARI + SAT MODU + NEXT =====
         float rx = mx + midW + gap;
         GUI.Box(new Rect(rx, y0, rightW, h), "ENVANTERIN");
 
@@ -439,7 +445,7 @@ public class ShopManager : MonoBehaviour
                 if (w == null) continue;
                 string lbl = $"{w.WeaponName}  Lv{w.Level}";
 
-                if (askida && weaponManager.IsUpgradableCopyOf(w, pendingWeapon))
+                if (askida && pendingWeapon != null && weaponManager.IsUpgradableCopyOf(w, pendingWeapon))
                 {
                     GUI.backgroundColor = Color.yellow;
                     if (GUI.Button(slotRect, $"{lbl}  ->  Lv{w.Level + 1}  [BURAYI YUKSELT]"))
@@ -456,7 +462,7 @@ public class ShopManager : MonoBehaviour
             }
             else
             {
-                if (askida && !bosSlotButonuCizildi)
+                if (askida && pendingWeapon != null && !bosSlotButonuCizildi)
                 {
                     bosSlotButonuCizildi = true;
                     GUI.backgroundColor = Color.yellow;

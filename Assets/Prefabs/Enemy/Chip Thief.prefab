@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 4930683392067696478}
   - component: {fileID: 4000769661704597237}
   - component: {fileID: -973067359919617555}
+  - component: {fileID: 7303719543162708015}
   m_Layer: 7
   m_Name: Chip Thief
   m_TagString: Enemy
@@ -200,3 +201,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyChaser
   moveSpeed: 2.5
   contactDamage: 1
+--- !u!114 &7303719543162708015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9006885073131550710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9aeed52a11811ca409f45b8de8c334b3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyFlee
+  fleeSpeed: 4.4
+  escapeDistance: 16

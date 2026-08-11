@@ -62,8 +62,9 @@ public class WeaponChain : WeaponBase
 
     private IEnumerator PerformChainCombo()
     {
-        Vector2 firstDir = (Level < 3) ? -movement.FacingDir : movement.FacingDir;
-        Strike(firstDir, curHits);
+        // DUZELTME: her seviyede BAKILAN yone vurulur (GDD 4.2 "yalnizca bakilan yone vurur").
+        // Eskiden Lv1-2'de -FacingDir vardi, yani zincir ters yone vuruyordu.
+        Strike(movement.FacingDir, curHits);
 
         if (curBackStrike)
         {

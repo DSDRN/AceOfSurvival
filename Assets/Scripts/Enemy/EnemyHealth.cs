@@ -33,6 +33,17 @@ public class EnemyHealth : MonoBehaviour
     public float MaxHealth => maxHealth;
 
     private float currentHealth;
+    // Excel tablosundaki +HP/wave degeri
+    [SerializeField] private float hpPerWave = 3f;
+
+    public void InitScaling(int waveNumber)
+    {
+        // İlk wave'de (wave 1) scale olmaz, wave 2'den itibaren carpmaya baslar
+        int scaleCount = Mathf.Max(0, waveNumber - 1);
+        maxHealth += (hpPerWave * scaleCount);
+        currentHealth = maxHealth;
+        Debug.Log($"{gameObject.name} Scale Oldu! Yeni HP: {maxHealth} (Wave: {waveNumber})");
+    }
     private SpriteRenderer sr;
     private Color originalColor;
     private Rigidbody2D rb;
@@ -83,11 +94,24 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(float damage, bool isCrit)
     {
+        // GUVENLIK KILIDI: Obje zaten kapaliysa veya canı sıfırlanmışsa hasar/efekt isleme iptal edilir (Hayalet Obje Hatası Çözümü)
+        if (!gameObject.activeInHierarchy || currentHealth <= 0f) return;
+
         currentHealth -= damage;
+
+        // Ekrana hasar sayisini cikar
         DamageNumberManager.Instance?.Show(transform.position, damage, isCrit,
             isCrit ? DamageNumberManager.CritRenk : DamageNumberManager.NormalRenk);
+
+        // HITSTOP ENTEGRASYONU: Eger kritik vurus geldiyse, ekran kisa sureligine donar (Game Juice)
+        if (isCrit)
+        {
+            HitStop.Do(0.05f); // HitStopManager'dan 0.05 saniyelik mikro donma talep eder
+        }
+
         StopAllCoroutines();
         StartCoroutine(HitFlash());
+
         if (currentHealth <= 0f) Die();
     }
 
