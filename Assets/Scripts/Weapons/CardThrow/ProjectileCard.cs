@@ -55,18 +55,17 @@ public class ProjectileCard : MonoBehaviour
             gameObject.SetActive(false);
             return;
         }
+
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
         if (enemy == null) return;    // dusman degilse (duvar vb.) simdilik delip gec
 
+        // 1. Hasari ver
         enemy.TakeDamage(damage, isCrit);
 
-        // Eger dusmanda Rigidbody2D varsa, merminin gittigi yone dogru it:
-        if (other.TryGetComponent<Rigidbody2D>(out Rigidbody2D enemyRb))
-        {
-            // Kartlar Rigidbody kullanmadigi icin dogrudan ucus yonumuzu (direction) kullaniyoruz
-            enemyRb.AddForce(direction * currentKnockback, ForceMode2D.Impulse);
-        }
+        // 2. Geri Tepmeyi (Knockback) Uygula (ARTIK KENDI FONKSIYONUMUZU KULLANIYORUZ!)
+        enemy.ApplyKnockback(direction, currentKnockback);
 
-        gameObject.SetActive(false);  // kart isini yapti, havuza don
+        // 3. Mermiyi yokedip (havuza dondurup) islemi bitir
+        gameObject.SetActive(false);
     }
 }
