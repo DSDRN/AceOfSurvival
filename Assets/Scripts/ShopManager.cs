@@ -63,15 +63,12 @@ public class ShopManager : MonoBehaviour
         closeClicked = false;
         Time.timeScale = 0f;
 
-        // GUNCELLEME: Artik magaza sadece closeClicked true oldugunda (butona basildiginda) kapanir.
-        // Eger askida (pending) bir silah varsa da oyuncuyu magazada tutar ki hedefini secsin.
         while (!closeClicked || pendingWeapon != null)
         {
-            // Eger oyuncu "Sonraki Wave"e basarsa ama hala hedef secmesi gereken bir silah varsa uyari verebiliriz
             if (closeClicked && pendingWeapon != null)
             {
                 Debug.LogWarning("Once aldigin silahi yerlestir!");
-                closeClicked = false; // Kapanmayi iptal et
+                closeClicked = false;
             }
             yield return null;
         }
@@ -86,8 +83,6 @@ public class ShopManager : MonoBehaviour
         {
             if (respectLocks && slots[i] != null && slots[i].locked && !slots[i].sold)
                 continue;
-
-            // GUNCELLEME: Eger RollOne null donerse (havuz bossa) bos slot yarat ki hata vermesin
             slots[i] = RollOne() ?? new Slot { sold = true };
         }
     }
@@ -111,7 +106,6 @@ public class ShopManager : MonoBehaviour
 
         int toplam = silahlar.Count + kurallar.Count + allTrinkets.Length;
 
-        // Guvenlik: Havuzda alinacak HICBIR SEY kalmamissa null dondur
         if (toplam == 0) return null;
 
         int roll = Random.Range(0, toplam);
@@ -272,6 +266,41 @@ public class ShopManager : MonoBehaviour
         }
     }
 
+    // YENI FONKSIYON: Silahtan verileri alip oyuncu statlariyla carparak GERCEK DPS'i hesaplar.
+    private string GetWeaponTooltip(WeaponBase w)
+    {
+        if (w == null) return "";
+        float baseDmg = w.GetCurrentDamage();
+        float baseCd = w.GetCurrentCooldown();
+        float speedMod = 1f;
+        float extraDmg = 0f;
+
+        if (stats != null)
+        {
+            if (w.Category == WeaponCategory.Ranged)
+            {
+                extraDmg = stats.BaseProjectileDamage;
+                speedMod = stats.ProjectileAttackSpeed;
+            }
+            else if (w.Category == WeaponCategory.Melee)
+            {
+                extraDmg = stats.BaseMeleeDamage;
+                speedMod = stats.MeleeAttackSpeed;
+            }
+            else if (w.Category == WeaponCategory.Tactical)
+            {
+                extraDmg = stats.CardCounting;
+                speedMod = 1f; // Taktiksel silahlar hizdan etkilenmez
+            }
+        }
+
+        float totalDmg = baseDmg + extraDmg;
+        float realCd = Mathf.Max(0.01f, baseCd / speedMod);
+        float dps = totalDmg / realCd;
+
+        return $"{w.WeaponName}\nTur: {w.Category}\nSeviye: {w.Level} / {WeaponBase.MaxLevel}\nHasar: {totalDmg:F1}\nAtis Araligi: {realCd:F2} sn\nDPS: ~{dps:F1}";
+    }
+
     private void OnGUI()
     {
         if (!IsOpen) return;
@@ -298,20 +327,26 @@ public class ShopManager : MonoBehaviour
 
         GUI.Box(new Rect(x0, y0, leftW, h), "STATLARIN");
         float ly = y0 + 35;
-        void S(string ad, string deger) { GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), $"{ad}: {deger}"); ly += 25; }
-        S("Can", $"{health.CurrentHealth:F0}/{health.MaxHealth:F0}");
-        S("Zirh", $"{health.Armor:F1}");
-        S("Hareket Hizi", $"{movement.MoveSpeed:F1}");
-        S("Menzilli Hasar", $"{stats.BaseProjectileDamage:F1}");
-        S("Yakin Dovus Hasari", $"{stats.BaseMeleeDamage:F1}");
-        S("Card Counting", $"{stats.CardCounting:F1}");
-        S("Mermi Hizi", $"{stats.BaseProjectileSpeed:F1}");
-        S("Menzil", $"{stats.BaseProjectileRange:F1}");
-        S("Menzilli Saldiri Hizi", $"x{stats.ProjectileAttackSpeed:F2}");
-        S("Yakin Saldiri Hizi", $"x{stats.MeleeAttackSpeed:F2}");
-        S("Crit", $"%{stats.CritChance:F1} / x{stats.CritMultiplier:F2}");
-        S("Pickup Yaricapi", $"{stats.PickupRadius:F1}");
-        S("Level", $"{resources.Level}");
+
+        void S(string ad, string deger, string aciklama)
+        {
+            GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), new GUIContent($"{ad}: {deger}", aciklama));
+            ly += 25;
+        }
+
+        S("Can", $"{health.CurrentHealth:F0}/{health.MaxHealth:F0}", "Maksimum canin ve su anki canin.");
+        S("Zirh", $"{health.Armor:F1}", "Gelen hasari belirli bir yuzdede emerek azaltir.");
+        S("Hareket Hizi", $"{movement.MoveSpeed:F1}", "Karakterin arenadaki yurume hizi.");
+        S("Menzilli Hasar", $"{stats.BaseProjectileDamage:F1}", "Kart ve benzeri firlatilan mermilerin taban hasari.");
+        S("Yakin Dovus Hasari", $"{stats.BaseMeleeDamage:F1}", "Zincir ve diger yakin dovus silahlarinin taban hasari.");
+        S("Card Counting", $"{stats.CardCounting:F1}", "Trap Card (Tuzak Karti) gibi taktiksel silahlarin hasarini artirir.");
+        S("Mermi Hizi", $"{stats.BaseProjectileSpeed:F1}", "Menzilli silahlarin gidis hizi. Ne kadar hizliysa o kadar uzaga ulasir.");
+        S("Menzil", $"{stats.BaseProjectileRange:F1}", "Menzilli mermilerin ulasabilecegi maksimum uzaklik.");
+        S("Menzilli Saldiri Hizi", $"x{stats.ProjectileAttackSpeed:F2}", "Menzilli silahlarin atis sikligini artirir (bekleme suresini dusurur).");
+        S("Yakin Saldiri Hizi", $"x{stats.MeleeAttackSpeed:F2}", "Yakin dovus silahlarinin vurus sikligini artirir.");
+        S("Crit", $"%{stats.CritChance:F1} / x{stats.CritMultiplier:F2}", "Kritik vurma sansin ve vurdugunda hasari kacla carpacagi.");
+        S("Pickup Yaricapi", $"{stats.PickupRadius:F1}", "Etraftaki tecrube puani (XP) ve chipleri toplama mesafen.");
+        S("Level", $"{resources.Level}", "Karakterin mevcut seviyesi. Her 5 seviyede bir otomatik %2 Kritik Sans kazanirsin!");
 
         ly += 15;
         GUI.Label(new Rect(x0 + 15, ly, leftW - 30, 25), "-- TRINKETLERIN --"); ly += 30;
@@ -319,9 +354,9 @@ public class ShopManager : MonoBehaviour
         foreach (TrinketDefinition t in trKopya)
         {
             if (t == null) continue;
-            GUI.Label(new Rect(x0 + 15, ly, leftW - 120, 25), $"{t.displayName} x{ownedTrinkets[t]}");
+            GUI.Label(new Rect(x0 + 15, ly, leftW - 120, 25), new GUIContent($"{t.displayName} x{ownedTrinkets[t]}", t.description));
             GUI.enabled = !askida;
-            if (GUI.Button(new Rect(x0 + leftW - 100, ly, 85, 25), $"Sat {RefundFor(t.basePrice)}"))
+            if (GUI.Button(new Rect(x0 + leftW - 100, ly, 85, 25), new GUIContent($"Sat {RefundFor(t.basePrice)}", "Bu trinket'i satarak altin iadesi alirsin.")))
                 TrySellTrinket(t);
             GUI.enabled = true;
             ly += 30;
@@ -336,8 +371,8 @@ public class ShopManager : MonoBehaviour
             Slot s = slots[i];
             float rowY = y0 + 40 + i * 100;
             string label; bool buyable;
+            string tooltip = "";
 
-            // GUNCELLEME: NullReference hatasina karsi guvenlik
             if (s == null) continue;
 
             if (s.sold) { label = "--- SATILDI ---"; buyable = false; }
@@ -351,6 +386,9 @@ public class ShopManager : MonoBehaviour
                       + (kopya > 0 ? $"   (sende: {kopya} kopya)" : "   YENI")
                       + (alinabilir ? "" : "\n(SLOT DOLU / KOPYALAR MAX)");
                 buyable = alinabilir;
+
+                // YENI: Magaza silahlarina (sol panel) detayli tooltip eklendi
+                tooltip = GetWeaponTooltip(s.weaponPrefab) + "\n\n(Bu silahi satin alir veya mevcut bir kopyasini seviye atlatir.)";
             }
             else if (s.IsHouseRule)
             {
@@ -363,6 +401,7 @@ public class ShopManager : MonoBehaviour
                     label = $"[KURAL] {s.hrPrefab.RuleName} - YENI   [{s.price}]" + (var ? "" : "\n(KURAL SLOTLARIN DOLU)");
                     buyable = var;
                 }
+                tooltip = "Oyunun kurallarini degistiren kalici guclendirme.";
             }
             else
             {
@@ -373,32 +412,33 @@ public class ShopManager : MonoBehaviour
                     label = $"{s.trinket.displayName}   [{s.price}]" + (sahip > 0 ? $"  (x{sahip})" : "")
                           + $"\n{s.trinket.description}";
                     buyable = true;
+                    tooltip = s.trinket.description;
                 }
             }
 
             bool eskiEnabled = GUI.enabled;
             GUI.enabled = !askida && !s.sold;
             GUI.backgroundColor = s.locked ? Color.cyan : Color.white;
-            if (GUI.Button(new Rect(mx + midW - 70, rowY, 55, 85), s.locked ? "KILIT\nACIK" : "K"))
+            if (GUI.Button(new Rect(mx + midW - 70, rowY, 55, 85), new GUIContent(s.locked ? "KILIT\nACIK" : "K", "Bu esyayi bir sonraki wave icin dondurur ve kaybolmasini engeller.")))
                 s.locked = !s.locked;
             GUI.backgroundColor = Color.white;
             GUI.enabled = eskiEnabled;
 
             GUI.enabled = !askida && buyable && resources.Chips >= s.price && !s.sold;
-            if (GUI.Button(new Rect(mx + 15, rowY, midW - 95, 85), label + (s.locked ? "   [KILITLI]" : "")))
+            if (GUI.Button(new Rect(mx + 15, rowY, midW - 95, 85), new GUIContent(label + (s.locked ? "   [KILITLI]" : ""), tooltip)))
                 TryBuy(i);
             GUI.enabled = !askida;
         }
 
         int rCost = CurrentRefreshCost();
         GUI.enabled = !askida && resources.Chips >= rCost;
-        if (GUI.Button(new Rect(mx + midW - 280, y0 + h - 60, 260, 45), $"REROLL ({rCost})"))
+        if (GUI.Button(new Rect(mx + midW - 280, y0 + h - 60, 260, 45), new GUIContent($"REROLL ({rCost})", "Magazadaki esyalari yeni rastgele esyalarla degistirir.")))
             TryRefresh();
         GUI.enabled = true;
 
         bool canHeal = health.CurrentHealth < health.MaxHealth && resources.Chips >= healCost;
         GUI.enabled = !askida && canHeal;
-        if (GUI.Button(new Rect(mx + 15, y0 + h - 60, 260, 45), $"%30 CAN YENILE ({healCost})"))
+        if (GUI.Button(new Rect(mx + 15, y0 + h - 60, 260, 45), new GUIContent($"%30 CAN YENILE ({healCost})", "Maksimum caninin %30'unu aninda doldurur.")))
             BuyHealthRestore();
         GUI.enabled = true;
 
@@ -407,8 +447,7 @@ public class ShopManager : MonoBehaviour
 
         GUI.enabled = !askida;
         GUI.backgroundColor = sellMode ? new Color(1f, 0.5f, 0.4f) : Color.white;
-        if (GUI.Button(new Rect(rx + 15, y0 + 35, rightW - 30, 40),
-            sellMode ? "SAT MODU ACIK - iptal icin tikla" : "SAT MODU"))
+        if (GUI.Button(new Rect(rx + 15, y0 + 35, rightW - 30, 40), new GUIContent(sellMode ? "SAT MODU ACIK - iptal icin tikla" : "SAT MODU", "Sahip oldugun silahlari veya kurallari %50 fiyata satmani saglar.")))
             sellMode = !sellMode;
         GUI.backgroundColor = Color.white;
         GUI.enabled = true;
@@ -420,13 +459,15 @@ public class ShopManager : MonoBehaviour
         {
             if (r == null) continue;
             string lbl = $"{r.RuleName}" + (r.Levelable ? $" Lv{r.Level}" : "") + (r.CanSell ? "" : "  [KALICI]");
+            string hrTooltip = $"Mevcut Seviye: {r.Level}\nOyunun genel kurallarini degistirir.";
+
             if (sellMode && r.CanSell && !askida)
             {
-                if (GUI.Button(new Rect(rx + 15, ry, rightW - 30, 30), $"SAT: {lbl}  (+{RefundFor(houseRuleBasePrice)})"))
+                if (GUI.Button(new Rect(rx + 15, ry, rightW - 30, 30), new GUIContent($"SAT: {lbl}  (+{RefundFor(houseRuleBasePrice)})", "Bu kurali yari fiyatina satar.")))
                     TrySellHouseRule(r);
             }
             else
-                GUI.Label(new Rect(rx + 15, ry, rightW - 30, 30), lbl);
+                GUI.Label(new Rect(rx + 15, ry, rightW - 30, 30), new GUIContent(lbl, hrTooltip));
             ry += 35;
         }
 
@@ -445,20 +486,23 @@ public class ShopManager : MonoBehaviour
                 if (w == null) continue;
                 string lbl = $"{w.WeaponName}  Lv{w.Level}";
 
+                // YENI (TOOLTIP): Envanterdeki silahlara da ayni gercekci istatistik eklendi
+                string wTooltip = GetWeaponTooltip(w);
+
                 if (askida && pendingWeapon != null && weaponManager.IsUpgradableCopyOf(w, pendingWeapon))
                 {
                     GUI.backgroundColor = Color.yellow;
-                    if (GUI.Button(slotRect, $"{lbl}  ->  Lv{w.Level + 1}  [BURAYI YUKSELT]"))
+                    if (GUI.Button(slotRect, new GUIContent($"{lbl}  ->  Lv{w.Level + 1}  [BURAYI YUKSELT]", wTooltip)))
                         PlacePendingOnCopy(w);
                     GUI.backgroundColor = Color.white;
                 }
                 else if (sellMode && !askida)
                 {
-                    if (GUI.Button(slotRect, $"SAT: {lbl}  (+{RefundFor(weaponBasePrice)})"))
+                    if (GUI.Button(slotRect, new GUIContent($"SAT: {lbl}  (+{RefundFor(weaponBasePrice)})", "Bu silahi yari fiyatina satar ve slotu bosaltir.")))
                         TrySellWeapon(w);
                 }
                 else
-                    GUI.Label(slotRect, lbl);
+                    GUI.Label(slotRect, new GUIContent(lbl, wTooltip));
             }
             else
             {
@@ -466,19 +510,29 @@ public class ShopManager : MonoBehaviour
                 {
                     bosSlotButonuCizildi = true;
                     GUI.backgroundColor = Color.yellow;
-                    if (GUI.Button(slotRect, $"[BOS SLOT]  YENI {pendingWeapon.WeaponName} Lv1 TAK"))
+                    if (GUI.Button(slotRect, new GUIContent($"[BOS SLOT]  YENI {pendingWeapon.WeaponName} Lv1 TAK", "Satin aldigin silahi bu bos slota yerlestir.")))
                         PlacePendingOnEmptySlot();
                     GUI.backgroundColor = Color.white;
                 }
                 else
-                    GUI.Label(slotRect, "(bos slot)");
+                    GUI.Label(slotRect, new GUIContent("(bos slot)", "Satin alinan yeni bir silah buraya yerlesir."));
             }
             ry += 40;
         }
 
         GUI.enabled = !askida;
-        if (GUI.Button(new Rect(rx + 15, y0 + h - 60, rightW - 30, 45), "SONRAKI WAVE ->"))
+        if (GUI.Button(new Rect(rx + 15, y0 + h - 60, rightW - 30, 45), new GUIContent("SONRAKI WAVE ->", "Hazirliklarini bitirip savasa devam et.")))
             closeClicked = true;
         GUI.enabled = true;
+
+        if (!string.IsNullOrEmpty(GUI.tooltip))
+        {
+            Vector2 mousePos = Event.current.mousePosition;
+            GUI.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+            GUIContent tooltipContent = new GUIContent(GUI.tooltip);
+            Vector2 size = GUI.skin.box.CalcSize(tooltipContent);
+            GUI.Box(new Rect(mousePos.x + 15, mousePos.y + 15, size.x + 20, size.y + 10), GUI.tooltip);
+            GUI.backgroundColor = Color.white;
+        }
     }
 }

@@ -8,21 +8,14 @@ public class WeaponBodyguards : WeaponBase
     [SerializeField] private int[] countByLevel = { 1, 2, 2, 3, 4 };
 
     [Header("Yorunge (balance 9. paket onerileri)")]
-    [Tooltip("Cember yaricapi = 1.5")]
     [SerializeField] private float orbitRadius = 1.5f;
-
-    [Tooltip("Donus hizi (tur/saniye) = 0.5")]
     [SerializeField] private float turnsPerSecond = 0.5f;
 
     [Header("Vurus")]
-    [Tooltip("Ayni dusmana iki vurus arasi minimum sure = 0.5 sn (KRITIK)")]
     [SerializeField] private float hitCooldown = 0.5f;
-
-    [Tooltip("Korumanin vurus mesafesi (koruma merkezinden)")]
     [SerializeField] private float hitRadius = 0.5f;
 
     [Header("Baglanti")]
-    [Tooltip("Koruma gorseli prefab'i (kucuk kare - sonra bodyguard sprite'i)")]
     [SerializeField] private Transform guardPrefab;
 
     private float curDamage;
@@ -75,7 +68,6 @@ public class WeaponBodyguards : WeaponBase
     {
         float hitSqr = hitRadius * hitRadius;
 
-        // GUNCELLEME: Artik "AllHittables" listesine bakiyoruz ki Proplari da vurabilsin
         for (int i = EnemyHealth.AllHittables.Count - 1; i >= 0; i--)
         {
             EnemyHealth e = EnemyHealth.AllHittables[i];
@@ -93,4 +85,8 @@ public class WeaponBodyguards : WeaponBase
             nextHitTime[e] = Time.time + hitCooldown;
         }
     }
+
+    // YENI: Tooltip Metotlari
+    public override float GetCurrentDamage() => damageByLevel[Mathf.Clamp(Level - 1, 0, damageByLevel.Length - 1)];
+    public override float GetCurrentCooldown() => hitCooldown;
 }

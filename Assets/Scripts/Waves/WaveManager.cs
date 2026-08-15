@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement; // GameOver icin gerekli
+using UnityEngine.SceneManagement;
 
 public class WaveManager : MonoBehaviour
 {
@@ -12,22 +12,20 @@ public class WaveManager : MonoBehaviour
 
     [Header("Baglantilar")]
     [SerializeField] private Transform player;
-
-    [Tooltip("GiantGlove objesini surukle")]
     [SerializeField] private GiantGloveHazard glove;
+    [SerializeField] private ShopManager shop;
+    [SerializeField] private LevelUpManager levelUpManager;
+
+    [Tooltip("Wave 7'de dogacak The Dealer prefabini buraya surukle")]
+    [SerializeField] private BossController bossPrefab;
 
     [Header("Spawn ayarlari")]
     [SerializeField] private float spawnRadius = 12f;
     [SerializeField] private float pauseBetweenWaves = 3f;
     [SerializeField] private float autoCollectRatio = 0.75f;
 
-    [SerializeField] private ShopManager shop;
-    [SerializeField] private LevelUpManager levelUpManager;
-
     private int currentWaveIndex = -1;
     private float waveTimer;
-
-    // YENI: Tank Garantisi icin takip
     private bool tankSpawnedThisWave = false;
 
     public int CurrentWaveNumber => currentWaveIndex + 1;
@@ -50,7 +48,11 @@ public class WaveManager : MonoBehaviour
         {
             WaveDefinition wave = waves[currentWaveIndex];
             player.position = Vector3.zero;
-            tankSpawnedThisWave = false; // Yeni wave basladi, tank garantisini sifirla
+            tankSpawnedThisWave = false;
+
+            // HATA COZULDU: Harita Buyumesi Baglantisi
+            if (currentWaveIndex == 4 && MapController.Instance != null)
+                MapController.Instance.ExpandMap();
 
             Debug.Log($"--- WAVE {currentWaveIndex + 1} basladi ({wave.duration} sn) ---");
 
@@ -58,13 +60,20 @@ public class WaveManager : MonoBehaviour
 
             waveTimer = wave.duration;
             float spawnTimer = 0f;
-
-            // BOSS WAVE KONTROLU (Wave 7, index 6)
             bool isBossWave = (currentWaveIndex == 6);
+            BossController aktifBoss = null;
+
             if (isBossWave)
             {
                 Debug.Log("DIKKAT: BOSS WAVE BASLADI! 50 SANIYE KURALI AKTIF!");
-                waveTimer = 50f; // Boss icin sure kilitlenir
+                waveTimer = 50f;
+
+                // HATA COZULDU: Boss artik gercekten sahneye doguyor
+                if (bossPrefab != null)
+                {
+                    aktifBoss = Instantiate(bossPrefab, new Vector3(0f, 6f, 0f), Quaternion.identity);
+                    aktifBoss.gameObject.SetActive(true);
+                }
             }
 
             while (waveTimer > 0f)
@@ -74,7 +83,6 @@ public class WaveManager : MonoBehaviour
                 waveTimer -= Time.deltaTime;
                 spawnTimer -= Time.deltaTime;
 
-                // Spawner mantigi (Boss wave'inde normal dusmanlari %25 azaltip cikaririz)
                 int activeEnemiesAllowed = isBossWave ? Mathf.RoundToInt(wave.maxActiveEnemies * 0.75f) : wave.maxActiveEnemies;
 
                 if (spawnTimer <= 0f && EnemyHealth.ActiveEnemies.Count < activeEnemiesAllowed)
@@ -87,15 +95,15 @@ public class WaveManager : MonoBehaviour
 
             if (glove != null) glove.StopCycle();
 
-            // BOSS 50 SANIYEDE OLMEDI MI?
             if (isBossWave)
             {
-                // TODO: Boss objesini kontrol et, yasiyorsa Run Kaybedilir
-                bool bossYasiyorMu = true; // Sahnede 'Boss' tag'li obje var mi diye aranacak
+                // HATA COZULDU: Gercek boss kontrolu
+                bool bossYasiyorMu = aktifBoss != null && aktifBoss.gameObject.activeInHierarchy && aktifBoss.GetComponent<EnemyHealth>().CurrentHealth > 0;
+
                 if (bossYasiyorMu)
                 {
                     Debug.LogError("SURE BITTI, BOSS YASIYOR! RUN KAYBEDILDI!");
-                    player.GetComponent<PlayerHealth>()?.TakeDamage(9999f); // Oyuncuya tek at
+                    player.GetComponent<PlayerHealth>()?.TakeDamage(9999f);
                     yield break;
                 }
             }
@@ -116,41 +124,41 @@ public class WaveManager : MonoBehaviour
         }
 
         Debug.Log("=== STAGE TAMAMLANDI! ===");
-        // Run Sonu (Win) ekrani tetiklenecek
+        // TODO: Zafer akisi
     }
 
     private void SpawnEnemy(WaveDefinition wave)
     {
         EnemySpawnEntry entry = null;
 
-        // AKILLI SPAWNER (Task 2.3): Eger bu wave'de tank cikmadiysa ve wave'in dusman havuzunda tank varsa ilk onu cikar
-        if (!tankSpawnedThisWave && currentWaveIndex >= 2) // Wave 3'ten itibaren gecerli
+        if (!tankSpawnedThisWave && currentWaveIndex >= 2)
         {
             foreach (var e in wave.enemies)
             {
-                // Fedai'nin (Tankin) ismini veya ozel bir ayirici etiketini buraya yazmalisin
-                if (e.prefab.name.Contains("Bouncer") || e.prefab.name.Contains("Fedai"))
+                // HATA COZULDU: Prefab ismine gore aramak yerine, gercek isTank kutucuguna bakar
+                EnemyHealth eh = e.prefab.GetComponent<EnemyHealth>();
+                if (eh != null && eh.isTank)
                 {
                     entry = e;
                     tankSpawnedThisWave = true;
-                    Debug.Log("Tank Garantisi Çalişti: Ilk once Tank dogdu!");
+                    Debug.Log("Tank Garantisi Çalişti!");
                     break;
                 }
             }
         }
 
-        // Eger tank degilse normal agirilikli secim yap
-        if (entry == null)
-            entry = PickWeighted(wave.enemies);
-
+        if (entry == null) entry = PickWeighted(wave.enemies);
         if (entry == null || entry.prefab == null) return;
 
         Vector2 dir = Random.insideUnitCircle.normalized;
         Vector2 targetSpawnPos = (Vector2)player.position + dir * spawnRadius;
+        Vector2 safeSpawnPos;
 
-        float clampedX = Mathf.Clamp(targetSpawnPos.x, -28f, 28f);
-        float clampedY = Mathf.Clamp(targetSpawnPos.y, -13f, 13f);
-        Vector2 safeSpawnPos = new Vector2(clampedX, clampedY);
+        // HATA COZULDU: Harita disi dogmayi engeller
+        if (MapController.Instance != null)
+            safeSpawnPos = MapController.Instance.ClampInside(targetSpawnPos, 1.5f);
+        else
+            safeSpawnPos = new Vector2(Mathf.Clamp(targetSpawnPos.x, -28f, 28f), Mathf.Clamp(targetSpawnPos.y, -13f, 13f));
 
         int adet = Mathf.Max(1, entry.groupSize);
         for (int i = 0; i < adet; i++)
@@ -158,10 +166,7 @@ public class WaveManager : MonoBehaviour
             EnemyHealth enemy = GetFromPool(entry.prefab);
             enemy.transform.position = safeSpawnPos + Random.insideUnitCircle * 1.2f;
 
-            // TASK 2.2: Dusman sahnede yaratilirken gucunu Wave numarasina gore scale eder
             enemy.InitScaling(CurrentWaveNumber);
-
-            // Dusmanin davranisini da (hiz/hasar vb) scale et
             var chaser = enemy.GetComponent<EnemyChaser>();
             if (chaser != null) chaser.InitScaling(CurrentWaveNumber);
 
@@ -209,13 +214,11 @@ public class WaveManager : MonoBehaviour
     private void AutoCollectPickups()
     {
         List<Pickup> copy = new List<Pickup>(Pickup.ActivePickups);
-        foreach (Pickup p in copy) p.Collect(autoCollectRatio);
-    }
-
-    private void OnGUI()
-    {
-        if (currentWaveIndex < 0 || currentWaveIndex >= waves.Length) return;
-        GUI.Label(new Rect(10, 10, 400, 25), $"WAVE {currentWaveIndex + 1}/{waves.Length}   Kalan: {Mathf.CeilToInt(Mathf.Max(0, waveTimer))} sn");
-        GUI.Label(new Rect(10, 35, 400, 25), $"Aktif dusman: {EnemyHealth.ActiveEnemies.Count}");
+        foreach (Pickup p in copy)
+        {
+            // HATA COZULDU: İksirleri ve sandiklari yutmaz
+            if (p.IsAutoCollectible)
+                p.Collect(autoCollectRatio);
+        }
     }
 }

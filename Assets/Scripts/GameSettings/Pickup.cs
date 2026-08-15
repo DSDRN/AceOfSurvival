@@ -11,12 +11,11 @@ public class Pickup : MonoBehaviour
     [SerializeField] private float flySpeed = 9f;
 
     public PickupType Type => type;
-
-    /// Wave sonu %75 kurali SADECE bunlara uygulanir
     public bool IsAutoCollectible => type == PickupType.XP || type == PickupType.Chips;
 
     private float value;
     private bool flying;
+    private float currentCollectRatio = 1f; // Vakum durumunda bu oran %0.75 olur
 
     private static Transform player;
     private static PlayerStats playerStats;
@@ -32,6 +31,7 @@ public class Pickup : MonoBehaviour
     {
         value = pickupValue;
         flying = false;
+        currentCollectRatio = 1f; // Normal toplamada oran hep 1
     }
 
     private void Update()
@@ -51,16 +51,27 @@ public class Pickup : MonoBehaviour
 
         float dist = Vector2.Distance(transform.position, player.position);
 
+        // Vakum modunda degilse ve yakinsa, normal ucusu baslat
         if (!flying && dist <= playerStats.PickupRadius)
             flying = true;
 
         if (flying)
         {
-            transform.position = Vector2.MoveTowards(
-                transform.position, player.position, flySpeed * Time.deltaTime);
+            // Hizlanarak karaktere gitme (Tatmin edici vakum hissi icin flySpeed artabilir)
+            flySpeed += Time.deltaTime * 15f;
+            transform.position = Vector2.MoveTowards(transform.position, player.position, flySpeed * Time.deltaTime);
+
             if (dist < 0.3f)
-                Collect(1f);
+                Collect(currentCollectRatio);
         }
+    }
+
+    // WAVE SONU VAKUM TETIKLEYICISI
+    public void StartVacuum(float ratio)
+    {
+        if (!IsAutoCollectible || flying) return;
+        currentCollectRatio = ratio;
+        flying = true; // Ucusu zorla baslat
     }
 
     public void Collect(float oran)
@@ -75,8 +86,6 @@ public class Pickup : MonoBehaviour
             case PickupType.Potion:
                 if (playerHealth != null)
                 {
-                    // İSTEDİĞİN GİBİ DEĞİŞTİRİLDİ: Maksimum canın %20'sini verir.
-                    // PlayerHealth içindeki Mathf.Min komutu sayesinde can %100'ü asla aşamaz.
                     float healAmount = playerHealth.MaxHealth * 0.20f;
                     playerHealth.Heal(healAmount);
                 }
@@ -93,26 +102,23 @@ public class Pickup : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    /// MAGNET: haritadaki tum XP+chips ANINDA TAM DEGERLE toplanir (GDD 7.1)
     private void MagnetEffect()
     {
         Debug.Log("MAGNET! Her sey toplandi.");
         List<Pickup> copy = new List<Pickup>(ActivePickups);
         foreach (Pickup p in copy)
         {
+            // Magnet de vakum animasyonu baslatir (aninda toplamak yerine)
             if (p != this && p.IsAutoCollectible)
-                p.Collect(1f);   // %100 deger - magnet cezasiz
+                p.StartVacuum(1f);
         }
     }
 
-    /// KART KUTUSU: altin + sahip olunan rastgele esyaya BEDAVA seviye
     private void OpenChest()
     {
-        // 1) Altin (value = spawner'in belirledigi miktar)
         int altin = Mathf.RoundToInt(value);
         playerResources?.AddBonusGold(altin);
 
-        // 2) Bedava seviye adaylari: max olmamis silahlar + levellenebilir kurallar
         List<System.Func<bool>> adaylar = new List<System.Func<bool>>();
         if (weaponManager != null)
             foreach (WeaponBase w in weaponManager.Equipped)

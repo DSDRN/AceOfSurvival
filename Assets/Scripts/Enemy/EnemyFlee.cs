@@ -4,10 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(EnemyHealth))]
 public class EnemyFlee : MonoBehaviour
 {
-    [Tooltip("Kacis hizi (Excel 300-400 -> ~4.4; oyuncu 4.5 - KIL PAYI yakalanabilir)")]
     [SerializeField] private float fleeSpeed = 4.4f;
-
-    [Tooltip("Oyuncudan bu kadar uzaklasirsa KACMAYI BASARDI (lootsuz yok olur)")]
     [SerializeField] private float escapeDistance = 16f;
 
     private Rigidbody2D rb;
@@ -30,7 +27,8 @@ public class EnemyFlee : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (healthComp != null && healthComp.IsKnockedBack) return;   // savrulurken kacamaz
+        // Stagger yemis bir hirsiz kacamaz, oldugu yerde kilitlenir!
+        if (healthComp != null && (healthComp.IsKnockedBack || healthComp.IsStaggered)) return;
 
         if (target == null || !target.gameObject.activeInHierarchy)
         {
@@ -40,7 +38,6 @@ public class EnemyFlee : MonoBehaviour
 
         Vector2 away = rb.position - (Vector2)target.position;
 
-        // KACMAYI BASARDI: SetActive(false) = Die() CALISMAZ = LOOT YOK
         if (away.magnitude > escapeDistance)
         {
             Debug.Log("Chip Hirsizi kacmayi basardi - loot gitti!");

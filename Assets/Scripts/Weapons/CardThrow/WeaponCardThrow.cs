@@ -74,7 +74,6 @@ public class WeaponCardThrow : WeaponBase
         EnemyHealth nearest = null;
         float nearestSqr = maxRange * maxRange;
 
-        // GUNCELLEME: Kart destesi artik AllHittables (Dusman + Prop) icinden en yakin olani hedefler.
         foreach (EnemyHealth e in EnemyHealth.AllHittables)
         {
             float sqr = ((Vector2)e.transform.position - (Vector2)owner.position).sqrMagnitude;
@@ -99,4 +98,8 @@ public class WeaponCardThrow : WeaponBase
         pool.Add(yeni);
         return yeni;
     }
+
+    // YENI: Tooltip Metotlari
+    public override float GetCurrentDamage() => damageByLevel[Mathf.Clamp(Level - 1, 0, damageByLevel.Length - 1)];
+    public override float GetCurrentCooldown() => cooldownByLevel[Mathf.Clamp(Level - 1, 0, cooldownByLevel.Length - 1)];
 }

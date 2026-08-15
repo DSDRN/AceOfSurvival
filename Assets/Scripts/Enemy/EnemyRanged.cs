@@ -1,53 +1,29 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/*
- * EnemyRanged.cs
- * ==============
- * BU DOSYA NE YAPAR?
- * Menzilli dusman davranisi - Hilebaz Krupiye (balance ID 4, Brotato: Spitter):
- *   - Oyuncu COK YAKLASIRSA kacar (fleeDistance)
- *   - Guvenli mesafedeyse durur ve belirli araliklarla oyuncuya kart firlatir
- *   - Mermiler TUM ranged dusmanlarin PAYLASTIGI ortak havuzdan gelir
- *     (static pool: 10 krupiye ayni mermi stogunu kullanir - israf yok)
- *
- * Fedai gibi tank icin YENI SCRIPT GEREKMEZ: o EnemyChaser'in farkli
- * sayilarla prefab'i. Bu script sadece FARKLI DAVRANIS gerektigi icin var.
- */
 [RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(EnemyHealth))] // Stagger icin eklendi
 public class EnemyRanged : MonoBehaviour
 {
-    [Header("Hareket (balance 4_Dusmanlar)")]
-    [Tooltip("Krupiye onerisi: 2.5 (Excel 200 / ~80)")]
+    [Header("Hareket")]
     [SerializeField] private float moveSpeed = 2.5f;
-
-    [Tooltip("Oyuncu bundan yakinsa KAC")]
     [SerializeField] private float fleeDistance = 4f;
 
     [Header("Saldiri")]
-    [Tooltip("Krupiye hasari = 3 (ham; zirh formulu oyuncuda islenir)")]
     [SerializeField] private float projectileDamage = 3f;
-
-    [Tooltip("Atis araligi (sn)")]
     [SerializeField] private float fireInterval = 2f;
-
-    [Tooltip("Bu mesafedeyken ates edebilir")]
     [SerializeField] private float fireRange = 9f;
-
-    [Tooltip("Mermi ucus hizi (oyuncu mermisinden yavas olsun ki kacilabilsin)")]
     [SerializeField] private float projectileSpeed = 6f;
-
-    [Tooltip("Mermi menzili")]
     [SerializeField] private float projectileRange = 10f;
 
     [Header("Baglanti")]
     [SerializeField] private EnemyProjectile projectilePrefab;
 
-    // ---- ORTAK mermi havuzu: static = tum EnemyRanged'ler paylasir ----
     private static readonly Dictionary<EnemyProjectile, List<EnemyProjectile>> sharedPools = new();
 
     private Rigidbody2D rb;
     private SpriteRenderer sr;
+    private EnemyHealth eh; // Stagger icin
     private Transform target;
     private float fireTimer;
 
@@ -55,6 +31,7 @@ public class EnemyRanged : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponentInChildren<SpriteRenderer>();
+        eh = GetComponent<EnemyHealth>();
     }
 
     private void Start()
@@ -66,11 +43,14 @@ public class EnemyRanged : MonoBehaviour
 
     private void OnEnable()
     {
-        fireTimer = fireInterval * Random.Range(0.5f, 1f);   // hepsi ayni anda atmasin
+        fireTimer = fireInterval * Random.Range(0.5f, 1f);
     }
 
     private void FixedUpdate()
     {
+        // STAGGER: Sersemlediyse kacmayi veya nisan almayi birak.
+        if (eh != null && eh.IsStaggered) return;
+
         if (target == null || !target.gameObject.activeInHierarchy)
         {
             rb.linearVelocity = Vector2.zero;
@@ -80,7 +60,6 @@ public class EnemyRanged : MonoBehaviour
         Vector2 toPlayer = (Vector2)target.position - rb.position;
         float dist = toPlayer.magnitude;
 
-        // Cok yakinsa KAC, degilse DUR (guvenli mesafeden ates)
         if (dist < fleeDistance)
             rb.linearVelocity = -toPlayer.normalized * moveSpeed;
         else
@@ -93,6 +72,13 @@ public class EnemyRanged : MonoBehaviour
     private void Update()
     {
         if (target == null || !target.gameObject.activeInHierarchy) return;
+
+        // STAGGER HALINDE ATESTE EDEMEZ
+        if (eh != null && eh.IsStaggered)
+        {
+            fireTimer += Time.deltaTime; // Sureyi geri sar ki saldirisi iptal olsun
+            return;
+        }
 
         fireTimer -= Time.deltaTime;
         if (fireTimer > 0f) return;
@@ -107,7 +93,7 @@ public class EnemyRanged : MonoBehaviour
         }
         else
         {
-            fireTimer = 0.3f;   // menzil disinda - kisa sure sonra tekrar bak
+            fireTimer = 0.3f;
         }
     }
 
@@ -118,13 +104,11 @@ public class EnemyRanged : MonoBehaviour
             pool = new List<EnemyProjectile>();
             sharedPools[prefab] = pool;
         }
-
         foreach (EnemyProjectile p in pool)
         {
             if (!p.gameObject.activeInHierarchy)
                 return p;
         }
-
         EnemyProjectile yeni = Instantiate(prefab);
         yeni.gameObject.SetActive(false);
         pool.Add(yeni);

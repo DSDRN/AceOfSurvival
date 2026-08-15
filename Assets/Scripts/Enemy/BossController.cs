@@ -7,20 +7,16 @@ using UnityEngine;
 public class BossController : MonoBehaviour
 {
     [Header("Hareket (balance 9_Boss)")]
-    [Tooltip("Hiz = 3.6 (oyuncudan yavas - baski ama kacilabilir)")]
     [SerializeField] private float moveSpeed = 3.6f;
 
     [Header("Temas")]
-    [Tooltip("Temas hasari = 12 (ham)")]
     [SerializeField] private float contactDamage = 12f;
 
     [Header("Saldiri dongusu")]
-    [Tooltip("Iki saldiri arasi sure (normal faz)")]
     [SerializeField] private float attackInterval = 4f;
 
     [Header("Saldiri 1: Kart Yelpazesi")]
     [SerializeField] private int fanCardCount = 7;
-    [Tooltip("Yelpazenin toplam acisi (derece)")]
     [SerializeField] private float fanArc = 60f;
     [SerializeField] private float fanCardDamage = 3f;
     [SerializeField] private float fanCardSpeed = 5.5f;
@@ -28,11 +24,9 @@ public class BossController : MonoBehaviour
     [SerializeField] private EnemyProjectile cardPrefab;
 
     [Header("Saldiri 2: Chip Yagmuru")]
-    [Tooltip("Isaretlerin gorunme suresi (kacma penceresi)")]
     [SerializeField] private float slamTelegraph = 1f;
     [SerializeField] private float slamRadius = 1.6f;
     [SerializeField] private float slamDamage = 8f;
-    [Tooltip("3 adet child daire sprite (kurulum talimatinda)")]
     [SerializeField] private Transform[] slamMarkers;
 
     [Header("Enrage (%50 can alti)")]
@@ -65,19 +59,21 @@ public class BossController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        // Eger Boss bir sekilde Staggerlanirsa (Direnc 1 degilse) hareketini durdur.
+        if (healthComp != null && healthComp.IsStaggered) return;
+
         if (target == null || !target.gameObject.activeInHierarchy)
         {
             rb.linearVelocity = Vector2.zero;
             return;
         }
 
-        // Enrage kontrolu: %50 can altina ilk dususte tetiklenir
         if (!enraged && healthComp.HealthPercent <= 0.5f)
         {
             enraged = true;
             moveSpeed *= enrageSpeedMultiplier;
             fanCardCount = enrageFanCardCount;
-            if (sr != null) sr.color = new Color(1f, 0.6f, 0.6f);   // ofke kizarmasi
+            if (sr != null) sr.color = new Color(1f, 0.6f, 0.6f);
             Debug.Log("THE DEALER OFKELENDI!");
         }
 
@@ -86,16 +82,16 @@ public class BossController : MonoBehaviour
         if (sr != null) sr.flipX = toPlayer.x < 0f;
     }
 
-    // ---------------- SALDIRI DONGUSU ----------------
     private IEnumerator AttackLoop()
     {
-        bool fanNext = true;   // saldirilar sirayla doner
-
+        bool fanNext = true;
         while (true)
         {
             float bekle = enraged ? attackInterval * enrageIntervalMultiplier : attackInterval;
             yield return new WaitForSeconds(bekle);
 
+            // Stagger sirasinda saldiri gerceklestirme, bekle
+            if (healthComp != null && healthComp.IsStaggered) continue;
             if (target == null || !target.gameObject.activeInHierarchy) continue;
 
             if (fanNext) CardFan();
@@ -105,14 +101,12 @@ public class BossController : MonoBehaviour
         }
     }
 
-    // SALDIRI 1: oyuncuya dogru kart yelpazesi
     private void CardFan()
     {
         Vector2 baseDir = ((Vector2)target.position - (Vector2)transform.position).normalized;
 
         for (int i = 0; i < fanCardCount; i++)
         {
-            // Yelpaze: -arc/2 ile +arc/2 arasina esit dagit
             float offset = fanCardCount > 1
                 ? Mathf.Lerp(-fanArc / 2f, fanArc / 2f, (float)i / (fanCardCount - 1))
                 : 0f;
@@ -122,12 +116,10 @@ public class BossController : MonoBehaviour
         }
     }
 
-    // SALDIRI 2: oyuncunun etrafina isaretli chip yagmuru (telegraph -> AoE)
     private IEnumerator ChipRain()
     {
         if (target == null) yield break;
 
-        // Isaretleri yerlestir: 1'i oyuncunun ustune, digerleri yakinina
         Vector2[] noktalar = new Vector2[slamMarkers.Length];
         for (int i = 0; i < slamMarkers.Length; i++)
         {
@@ -137,12 +129,19 @@ public class BossController : MonoBehaviour
             slamMarkers[i].position = noktalar[i];
             slamMarkers[i].localScale = Vector3.one * (slamRadius * 2f);
             slamMarkers[i].gameObject.SetActive(true);
+
+            foreach (Vector2 nokta in noktalar)
+            {
+                if (target != null && target.gameObject.activeInHierarchy &&
+                    Vector2.Distance(target.position, nokta) <= slamRadius)
+                {
+                    target.GetComponent<PlayerHealth>()?.TakeDamage(slamDamage, healthComp, "The Dealer (Chip Yagmuru)");
+                }
+            }
         }
 
-        yield return new WaitForSeconds(slamTelegraph);   // kacma penceresi
+        yield return new WaitForSeconds(slamTelegraph);
 
-        // Dusus: isaretin icindeyse oyuncu hasar yer (dusmanlara dokunmaz -
-        // boss kendi adamlarini vurmaz)
         foreach (Vector2 nokta in noktalar)
         {
             if (target != null && target.gameObject.activeInHierarchy &&
@@ -151,7 +150,6 @@ public class BossController : MonoBehaviour
                 target.GetComponent<PlayerHealth>()?.TakeDamage(slamDamage);
             }
         }
-        // Ileride: chip yigini gorseli + ses + particle BURAYA
 
         foreach (Transform m in slamMarkers)
             if (m != null) m.gameObject.SetActive(false);
@@ -161,7 +159,7 @@ public class BossController : MonoBehaviour
     {
         PlayerHealth player = collision.collider.GetComponent<PlayerHealth>();
         if (player != null)
-            player.TakeDamage(contactDamage);
+            player.TakeDamage(contactDamage, healthComp, "The Dealer (Temas)");
     }
 
     private EnemyProjectile GetCard()
@@ -174,7 +172,6 @@ public class BossController : MonoBehaviour
         return yeni;
     }
 
-    // ---- Gecici boss can bari (ust orta) ----
     private void OnGUI()
     {
         if (!gameObject.activeInHierarchy) return;

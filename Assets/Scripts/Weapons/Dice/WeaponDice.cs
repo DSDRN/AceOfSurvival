@@ -11,8 +11,6 @@ public class WeaponDice : WeaponBase
     [SerializeField] private float cooldown = 5f;
     [SerializeField] private float targetSearchRange = 8f;
     [SerializeField] private float scatterRadius = 0.75f;
-
-    [Header("D20 Özel Zar (GDD 4.3)")]
     [SerializeField] private float nat20Chance = 1.5f;
 
     [Header("Baglanti")]
@@ -42,7 +40,6 @@ public class WeaponDice : WeaponBase
         List<EnemyHealth> candidates = new List<EnemyHealth>();
         float rangeSqr = targetSearchRange * targetSearchRange;
 
-        // GUNCELLEME: Zarlar artik sadece dusmanlari degil, kule ve kumbaralari da gorur
         foreach (EnemyHealth e in EnemyHealth.AllHittables)
         {
             if (((Vector2)e.transform.position - (Vector2)owner.position).sqrMagnitude <= rangeSqr)
@@ -82,4 +79,12 @@ public class WeaponDice : WeaponBase
         pool.Add(yeni);
         return yeni;
     }
+
+    // YENI: Tooltip Metotlari (Zar hasari formulu: Yuz x 0.75 + 0.75)
+    public override float GetCurrentDamage()
+    {
+        int maxF = maxFaceByLevel[Mathf.Clamp(Level - 1, 0, maxFaceByLevel.Length - 1)];
+        return (maxF * 0.75f) + 0.75f; // Maksimum sekme hasarini temsil eder
+    }
+    public override float GetCurrentCooldown() => cooldown;
 }

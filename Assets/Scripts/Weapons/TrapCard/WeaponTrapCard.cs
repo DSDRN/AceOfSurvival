@@ -8,13 +8,8 @@ public class WeaponTrapCard : WeaponBase
     [SerializeField] private float[] cooldownByLevel = { 6f, 5.6f, 5.1f, 4.7f, 4.1f };
 
     [Header("Sabitler (v1.3 - seviyeyle DEGISMEZ)")]
-    [Tooltip("Patlama yaricapi - SABIT")]
     [SerializeField] private float explosionRadius = 1.6f;
-
-    [Tooltip("Omur = 15 sn (KILIT)")]
     [SerializeField] private float cardLifeTime = 15f;
-
-    [Tooltip("Birakma basina kart")]
     [SerializeField] private int cardsPerDrop = 1;
 
     [Header("Baglanti")]
@@ -65,4 +60,8 @@ public class WeaponTrapCard : WeaponBase
         pool.Add(yeni);
         return yeni;
     }
+
+    // YENI: Tooltip Metotlari
+    public override float GetCurrentDamage() => damageByLevel[Mathf.Clamp(Level - 1, 0, damageByLevel.Length - 1)];
+    public override float GetCurrentCooldown() => cooldownByLevel[Mathf.Clamp(Level - 1, 0, cooldownByLevel.Length - 1)];
 }

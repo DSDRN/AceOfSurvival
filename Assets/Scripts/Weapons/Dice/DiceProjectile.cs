@@ -19,13 +19,11 @@ public class DiceProjectile : MonoBehaviour
         noFilter = ContactFilter2D.noFilter;
     }
 
-    // YENI EKLENEN "isNat20" PARAMETRESINE DIKKAT
     public void Begin(Vector2 landPoint, int face, PlayerStats playerStats, bool isNat20 = false)
     {
         stats = playerStats;
         transform.position = landPoint;
 
-        // Eger D20 ise zar gorsel olarak normal zarlarin 2 kati buyuk olacak
         float size = isNat20 ? 1.5f : (0.35f + face * 0.1f);
         transform.localScale = new Vector3(size, size, 1f);
 
@@ -38,28 +36,23 @@ public class DiceProjectile : MonoBehaviour
             StartCoroutine(BounceRoutine(face));
     }
 
-    // --- D20 (NATURAL 20) MAP WIPE FONKSIYONU ---
     private IEnumerator Nat20Routine()
     {
-        // Zar 0.5 saniye havada asili kalsin ve dramatik bir bekleyis yaratsin
         yield return new WaitForSeconds(0.5f);
 
         DamageNumberManager.Instance?.Show(transform.position, 20, true, Color.yellow);
         Debug.Log("NATURAL 20!!! HARITA TEMIZLENIYOR!");
 
-        // Sahnedeki tum aktif dusmanlari temizle (GDD 4.3)
         foreach (EnemyHealth activeEnemy in EnemyHealth.ActiveEnemies)
         {
             if (activeEnemy == null || !activeEnemy.gameObject.activeInHierarchy) continue;
 
             if (activeEnemy.CompareTag("Boss"))
             {
-                // Boss ise %50 max can hasari ver
                 activeEnemy.TakeDamage(activeEnemy.MaxHealth * 0.5f, true);
             }
             else
             {
-                // Normal dusmanlara direkt tek at
                 activeEnemy.TakeDamage(activeEnemy.MaxHealth * 2f, true);
             }
         }
@@ -67,10 +60,8 @@ public class DiceProjectile : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    // --- NORMAL ZAR SEKME FONKSIYONU ---
     private IEnumerator BounceRoutine(int face)
     {
-        // ... (Eski kodlarinin aynisi)
         float aoeRadius = face * 0.75f + 1.25f;
         float baseDamage = face * 0.75f + 0.75f;
 
@@ -110,6 +101,9 @@ public class DiceProjectile : MonoBehaviour
                     dmg = stats.ApplyCritRoll(baseDamage, out isCrit);
 
                 enemy.TakeDamage(dmg, isCrit);
+
+                // YENI: Zar patlamasi agir hasardir, 0.25 sn dondurur!
+                enemy.ApplyStagger(0.25f);
             }
         }
 

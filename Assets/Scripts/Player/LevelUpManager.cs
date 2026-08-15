@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public enum StatType
 {
@@ -16,6 +17,9 @@ public class LevelUpManager : MonoBehaviour
     [SerializeField] private PlayerStats stats;
     [SerializeField] private PlayerHealth health;
     [SerializeField] private PlayerMovement movement;
+
+    [Tooltip("GDD: Stat havuzunu eldeki silahlara gore filtrelemek icin eklendi")]
+    [SerializeField] private WeaponManager weaponManager;
 
     [Header("Kademe agirliklari (KILIT: %80/%15/%5)")]
     [SerializeField] private float tier1Weight = 80f;
@@ -66,13 +70,87 @@ public class LevelUpManager : MonoBehaviour
 
     private void RollOptions()
     {
-        List<StatType> pool = new List<StatType>((StatType[])System.Enum.GetValues(typeof(StatType)));
-        for (int i = 0; i < 3; i++)
+        // 1. ADIM: Karakterin elindeki silah kategorilerini bul (Akilli Filtreleme Icin)
+        bool hasRanged = false;
+        bool hasMelee = false;
+
+        if (weaponManager != null)
         {
+            foreach (WeaponBase w in weaponManager.Equipped)
+            {
+                if (w.Category == WeaponCategory.Ranged) hasRanged = true;
+                if (w.Category == WeaponCategory.Melee) hasMelee = true;
+            }
+        }
+        else
+        {
+            // Guvenlik agi: Eger WeaponManager baglanmamissa her seyi acik farzet
+            hasRanged = true; hasMelee = true;
+        }
+
+        // 2. ADIM: Let Me Solo Her kontrolu (Kilitli kategori varsa havuzu daralt)
+        if (weaponManager != null && weaponManager.LockedCategory.HasValue)
+        {
+            if (weaponManager.LockedCategory.Value == WeaponCategory.Ranged) hasRanged = false;
+            if (weaponManager.LockedCategory.Value == WeaponCategory.Melee) hasMelee = false;
+        }
+
+        // 3. ADIM: Tüm statlari havuza ekle, kullanilmayanlari sil (Olu Stat Filtresi)
+        List<StatType> pool = new List<StatType>((StatType[])System.Enum.GetValues(typeof(StatType)));
+
+        // Ranged silah yoksa ranged statlarini cikar
+        if (!hasRanged)
+        {
+            pool.Remove(StatType.ProjectileDamage);
+            pool.Remove(StatType.ProjectileSpeed);
+            pool.Remove(StatType.ProjectileRange);
+            pool.Remove(StatType.ProjectileAttackSpeed);
+        }
+
+        // Melee silah yoksa melee statlarini cikar
+        if (!hasMelee)
+        {
+            pool.Remove(StatType.MeleeDamage);
+            pool.Remove(StatType.MeleeAttackSpeed);
+        }
+
+        // Notr Statlar ve Card Counting her zaman kalir.
+
+        // 4. ADIM: Secenekleri Belirle
+        // GDD Kurali: En az 1 stat kesinlikle build ile alakali olmali!
+        List<StatType> relatedStats = new List<StatType>();
+        if (hasRanged) relatedStats.AddRange(new[] { StatType.ProjectileDamage, StatType.ProjectileSpeed, StatType.ProjectileRange, StatType.ProjectileAttackSpeed });
+        if (hasMelee) relatedStats.AddRange(new[] { StatType.MeleeDamage, StatType.MeleeAttackSpeed });
+        relatedStats.Add(StatType.CardCounting); // Taktiksel her zaman eklenebilir
+
+        // Secenek 1: Kesinlikle build ile alakali bir stat
+        if (relatedStats.Count > 0)
+        {
+            StatType guaranteedStat = relatedStats[Random.Range(0, relatedStats.Count)];
+            options[0] = new Option { stat = guaranteedStat, tier = RollTier() };
+            pool.Remove(guaranteedStat); // Ayni stat bir daha cikmasin
+        }
+        else
+        {
+            // Eger hic silahi yoksa rastgele ver
+            int r = Random.Range(0, pool.Count);
+            options[0] = new Option { stat = pool[r], tier = RollTier() };
+            pool.RemoveAt(r);
+        }
+
+        // Secenek 2 ve 3: Kalan gecerli havuzdan tamamen rastgele
+        for (int i = 1; i < 3; i++)
+        {
+            if (pool.Count == 0) break; // Guvenlik
+
             int r = Random.Range(0, pool.Count);
             options[i] = new Option { stat = pool[r], tier = RollTier() };
             pool.RemoveAt(r);
         }
+
+        // Oyunculari sasirtmamak icin seceneklerin yerlerini karistir (Shuffle)
+        System.Random rnd = new System.Random();
+        options.OrderBy(x => rnd.Next()).ToArray().CopyTo(options, 0);
     }
 
     private int RollTier()
@@ -92,7 +170,7 @@ public class LevelUpManager : MonoBehaviour
             case StatType.Health: health.AddMaxHealth(amount); break;
             case StatType.Armor: health.AddArmor(amount); break;
             case StatType.MoveSpeed: movement.AddMoveSpeed(amount); break;
-            default: stats.AddStat(o.stat, amount); break;   // CardCounting dahil
+            default: stats.AddStat(o.stat, amount); break;
         }
         Debug.Log($"Secildi: {DisplayName(o.stat)} +{amount}");
     }

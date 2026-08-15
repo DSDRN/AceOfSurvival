@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement; // Ana menüye dönmek için eklendi
+using UnityEngine.SceneManagement;
 
 public class PauseMenu : MonoBehaviour
 {
@@ -10,6 +10,7 @@ public class PauseMenu : MonoBehaviour
 
     [Header("Baglanti")]
     [SerializeField] private PlayerMovement player;
+    [SerializeField] private PlayerResources resources; // Altin kaydi icin eklendi
 
     private InputAction pauseAction;
     private bool isPaused;
@@ -36,7 +37,6 @@ public class PauseMenu : MonoBehaviour
 
     private void TogglePause()
     {
-        // Eski kilit kaldirildi. Artik magaza acikken de ESC'ye basilabilir.
         if (isPaused) Resume();
         else Pause();
     }
@@ -46,6 +46,7 @@ public class PauseMenu : MonoBehaviour
         isPaused = true;
         Time.timeScale = 0f;
         if (player != null) player.SetControlsEnabled(false);
+
         pausePanel.SetActive(true);
         settingsPanel.SetActive(false);
     }
@@ -55,6 +56,7 @@ public class PauseMenu : MonoBehaviour
         isPaused = false;
         Time.timeScale = 1f;
         if (player != null) player.SetControlsEnabled(true);
+
         pausePanel.SetActive(false);
         settingsPanel.SetActive(false);
     }
@@ -62,21 +64,34 @@ public class PauseMenu : MonoBehaviour
     public void OpenSettings()
     {
         settingsPanel.SetActive(true);
+        pausePanel.SetActive(false); // Ayarlar acilinca arkadaki pause menusu gizlensin
     }
 
     public void CloseSettings()
     {
         settingsPanel.SetActive(false);
+        pausePanel.SetActive(true); // Ayarlardan cikinca pause menusu geri gelsin
     }
 
-    // YENI: Give Up fonksiyonu
+    // GUNCELLEME: Pes Et (Give Up) fonksiyonu artik altinlari kaydediyor!
     public void GiveUpRun()
     {
         isPaused = false;
-        Time.timeScale = 1f; // Fiziği tekrar başlat
-                             // TODO: İleride burada toplanan altını SaveSystem'e kaydedeceğiz.
+        Time.timeScale = 1f;
 
-        // Ana menü sahnesini yükle. (Unity'de Build Settings'e "MainMenu" sahnesini eklemelisin)
+        // O ana kadar toplanan cip'leri ve sandiklari altina cevir ve KAYDET
+        if (resources != null)
+        {
+            int waveReached = WaveManager.Instance != null ? WaveManager.Instance.CurrentWaveNumber : 0;
+            int goldFromWaves = waveReached * 2;
+            int goldFromChips = Mathf.FloorToInt(resources.TotalChipsEarned * 0.05f);
+            int goldChests = resources.BonusGold;
+
+            int totalGold = goldFromWaves + goldFromChips + goldChests;
+            SaveSystem.AddGold(totalGold);
+            Debug.Log($"Run iptal edildi. Kazanilan {totalGold} altin hesaba kaydedildi!");
+        }
+
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -84,15 +99,5 @@ public class PauseMenu : MonoBehaviour
     {
         Application.Quit();
         Debug.Log("Cikis istendi");
-    }
-
-    public void SetVolume(float value)
-    {
-        AudioListener.volume = Mathf.Clamp01(value);
-    }
-
-    public void SetFullscreen(bool fullscreen)
-    {
-        Screen.fullScreen = fullscreen;
     }
 }

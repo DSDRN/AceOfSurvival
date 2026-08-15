@@ -9,19 +9,14 @@ public class WeaponChain : WeaponBase
     [SerializeField] private float[] reachByLevel = { 2.5f, 3.0f, 3.5f, 3.8f, 4.2f };
 
     [Header("Geri Tepme (Knockback)")]
-    [Tooltip("Vurus aninda dusmani geriye itme kuvveti")]
     [SerializeField] private float knockbackForce = 4.5f;
-
-    [Tooltip("Bu seviyeden itibaren ayni anda ust uste 2 vurus yapar")]
     [SerializeField] private int doubleHitFromLevel = 5;
-    [Tooltip("Bu seviyeden itibaren arkaya artci vurus acar")]
     [SerializeField] private int backStrikeFromLevel = 3;
 
     [Header("Vurus kutusu")]
     [SerializeField] private float hitHeight = 1.6f;
 
     [Header("Gorsel")]
-    [Tooltip("Prefab'in child'i olan yariseffaf kutu (SpriteRenderer)")]
     [SerializeField] private SpriteRenderer slashVisual;
 
     private float curDamage, curCooldown, curReach;
@@ -62,8 +57,6 @@ public class WeaponChain : WeaponBase
 
     private IEnumerator PerformChainCombo()
     {
-        // DUZELTME: her seviyede BAKILAN yone vurulur (GDD 4.2 "yalnizca bakilan yone vurur").
-        // Eskiden Lv1-2'de -FacingDir vardi, yani zincir ters yone vuruyordu.
         Strike(movement.FacingDir, curHits);
 
         if (curBackStrike)
@@ -93,6 +86,9 @@ public class WeaponChain : WeaponBase
                 {
                     enemy.TakeDamage(dmg, isCrit);
 
+                    // YENI: Zincir kirbaci 0.2 sn sersemletir
+                    enemy.ApplyStagger(0.2f);
+
                     if (hitBuffer[i].TryGetComponent<Rigidbody2D>(out Rigidbody2D enemyRb))
                     {
                         enemyRb.AddForce(dir * knockbackForce, ForceMode2D.Impulse);
@@ -105,6 +101,7 @@ public class WeaponChain : WeaponBase
             StartCoroutine(FlashSlash(dir));
     }
 
+    // YENIDEN EKLENDI: Ekranda kisa sureligine gozuken cizik efekti
     private IEnumerator FlashSlash(Vector2 dir)
     {
         slashVisual.transform.localPosition = dir * (curReach / 2f);
@@ -114,4 +111,8 @@ public class WeaponChain : WeaponBase
         yield return new WaitForSeconds(0.08f);
         slashVisual.enabled = false;
     }
+
+    // YENI: Tooltip Metotlari
+    public override float GetCurrentDamage() => damageByLevel[Mathf.Clamp(Level - 1, 0, damageByLevel.Length - 1)];
+    public override float GetCurrentCooldown() => cooldownByLevel[Mathf.Clamp(Level - 1, 0, cooldownByLevel.Length - 1)];
 }

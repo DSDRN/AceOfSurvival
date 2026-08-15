@@ -3,18 +3,15 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class ProjectileCard : MonoBehaviour
 {
-    // Bu degerler her atista silah tarafindan Launch() ile set edilir -
-    // Inspector'da ayar yok, cunku kaynak PlayerStats + silah seviyesi.
     private Vector2 direction;
     private float speed;
     private float maxRange;
     private float damage;
     private bool isCrit;
-    private float traveled;   // simdiye kadar uculan mesafe
+    private float traveled;
 
-    private float currentKnockback; // Silahin verdigi itme gucunu burada saklariz
+    private float currentKnockback;
 
-    /// <summary>Silah bunu cagirarak karti firlatir.</summary>
     public void Launch(Vector2 startPos, Vector2 dir, float spd, float range, float dmg, bool crit, float knockback)
     {
         transform.position = startPos;
@@ -25,31 +22,24 @@ public class ProjectileCard : MonoBehaviour
         isCrit = crit;
         traveled = 0f;
 
-        currentKnockback = knockback; // Gelen itme degerini kaydet
+        currentKnockback = knockback;
 
-        // Kartin "sagi" ucus yonune baksin (gorsel donme - kart yan ucmasin)
         transform.right = direction;
-
-        gameObject.SetActive(true);   // havuzdan uyanis
+        gameObject.SetActive(true);
     }
 
     private void Update()
     {
-        // Bu kare ne kadar yol alacagiz?
         float step = speed * Time.deltaTime;
         transform.position += (Vector3)(direction * step);
         traveled += step;
 
-        // GDD: menzil dolunca mermi yok olur (havuza doner)
         if (traveled >= maxRange)
             gameObject.SetActive(false);
     }
 
-    // OnTriggerEnter2D: collider'imiz "Is Trigger" isaretli oldugu icin
-    // fiziksel carpma yerine "icinden gecerken haber ver" calisir.
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Duvara carpan mermi yok olur (dev eldiven karti vb.)
         if (other.CompareTag("Wall"))
         {
             gameObject.SetActive(false);
@@ -57,15 +47,24 @@ public class ProjectileCard : MonoBehaviour
         }
 
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
-        if (enemy == null) return;    // dusman degilse (duvar vb.) simdilik delip gec
+        if (enemy == null) return;
 
         // 1. Hasari ver
         enemy.TakeDamage(damage, isCrit);
 
-        // 2. Geri Tepmeyi (Knockback) Uygula (ARTIK KENDI FONKSIYONUMUZU KULLANIYORUZ!)
+        // 2. Geri Tepmeyi ve Stagger'i Uygula
         enemy.ApplyKnockback(direction, currentKnockback);
 
-        // 3. Mermiyi yokedip (havuza dondurup) islemi bitir
+        // YENI: Kartlar dusmani cok kisa sureligine (0.15 sn) sersemletir.
+        enemy.ApplyStagger(0.15f);
+
+        // Eger dusmanda Rigidbody2D varsa (Eski Itme formulu yedek olarak kalabilir)
+        if (other.TryGetComponent<Rigidbody2D>(out Rigidbody2D enemyRb))
+        {
+            enemyRb.AddForce(direction * currentKnockback, ForceMode2D.Impulse);
+        }
+
+        // 3. Mermiyi yokedip islemi bitir
         gameObject.SetActive(false);
     }
 }

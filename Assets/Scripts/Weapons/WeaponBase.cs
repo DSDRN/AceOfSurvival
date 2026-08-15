@@ -39,4 +39,8 @@ public abstract class WeaponBase : MonoBehaviour
     }
 
     protected abstract void OnLevelChanged();
+
+    // YENI: Tooltip ve DPS hesabi icin hasar ve cooldown degerlerini disari aktaran metotlar
+    public abstract float GetCurrentDamage();
+    public abstract float GetCurrentCooldown();
 }

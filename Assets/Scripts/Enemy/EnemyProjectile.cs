@@ -34,18 +34,17 @@ public class EnemyProjectile : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Duvara carpan mermi yok olur (dev eldiven karti vb.)
         if (other.CompareTag("Wall"))
         {
             gameObject.SetActive(false);
             return;
         }
 
-        // Sadece oyuncuyu ariyoruz - dusmanlar ve baska mermiler umursanmaz
         PlayerHealth player = other.GetComponent<PlayerHealth>();
         if (player == null) return;
 
-        player.TakeDamage(damage);     // i-frame'deyse zaten yok sayilir
+        // YENI: Merminin adi kaynak (sourceName) olarak gider (Orn: "Krupiye Karti")
+        player.TakeDamage(damage, null, gameObject.name);
         gameObject.SetActive(false);
     }
 }
