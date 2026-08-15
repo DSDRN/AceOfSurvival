@@ -21,9 +21,14 @@ public class CameraFollow : MonoBehaviour
     public static void Shake(float amplitude, float duration)
     {
         if (instance == null) return;
-        if (amplitude >= instance.shakeAmplitude || instance.shakeTimer <= 0f)
+
+        // YENI: Oyuncunun ayarlardan sectigi Screenshake carpanini hesaba kat!
+        float adjustedAmplitude = amplitude * SettingsManager.ScreenshakeMultiplier;
+        if (adjustedAmplitude <= 0f) return; // Eger Screenshake %0 yapildysa hiç sarsma
+
+        if (adjustedAmplitude >= instance.shakeAmplitude || instance.shakeTimer <= 0f)
         {
-            instance.shakeAmplitude = amplitude;
+            instance.shakeAmplitude = adjustedAmplitude;
             instance.shakeDuration = duration;
             instance.shakeTimer = duration;
         }

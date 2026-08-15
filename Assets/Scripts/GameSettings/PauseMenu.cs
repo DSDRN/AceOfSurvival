@@ -59,6 +59,12 @@ public class PauseMenu : MonoBehaviour
 
         pausePanel.SetActive(false);
         settingsPanel.SetActive(false);
+
+        // YENI EKLENDI: UI uzerindeki odaklanmayi kaldir, karakter hareket edebilsin!
+        if (UnityEngine.EventSystems.EventSystem.current != null)
+        {
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+        }
     }
 
     public void OpenSettings()

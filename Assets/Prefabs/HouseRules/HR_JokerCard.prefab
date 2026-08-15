@@ -44,7 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7ad7c8c29fb27984180c87e1c1a438de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseRuleJoker
-  ruleName: Wild Card
+  ruleName: Joker Card
   levelable: 1
   chanceByLevel:
   - 10

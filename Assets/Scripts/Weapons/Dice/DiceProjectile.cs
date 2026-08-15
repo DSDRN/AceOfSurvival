@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DiceProjectile : MonoBehaviour
@@ -43,7 +44,10 @@ public class DiceProjectile : MonoBehaviour
         DamageNumberManager.Instance?.Show(transform.position, 20, true, Color.yellow);
         Debug.Log("NATURAL 20!!! HARITA TEMIZLENIYOR!");
 
-        foreach (EnemyHealth activeEnemy in EnemyHealth.ActiveEnemies)
+        // HATA COZUMU: Orijinal listeyi bozmamak icin anlik bir kopya olusturuyoruz!
+        List<EnemyHealth> kopyalananListe = new List<EnemyHealth>(EnemyHealth.ActiveEnemies);
+
+        foreach (EnemyHealth activeEnemy in kopyalananListe)
         {
             if (activeEnemy == null || !activeEnemy.gameObject.activeInHierarchy) continue;
 
@@ -53,6 +57,7 @@ public class DiceProjectile : MonoBehaviour
             }
             else
             {
+                // Tek atma islemi
                 activeEnemy.TakeDamage(activeEnemy.MaxHealth * 2f, true);
             }
         }

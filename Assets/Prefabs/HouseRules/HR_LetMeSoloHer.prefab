@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseRuleLetMeSoloHer
   ruleName: Let Me Solo Her
-  levelable: 1
+  levelable: 0
   pointsPerLevel: 2
   pProjDmg: 1
   pMeleeDmg: 1
